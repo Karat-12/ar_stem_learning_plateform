@@ -1,0 +1,72 @@
+target/
+# IDE Files
+
+.vscode/
+.idea/
+
+# OS Files
+
+.DS_Store
+Thumbs.db
+
+# Environment Variables
+
+.env
+.env.*
+*.env
+
+# Logs
+
+*.log
+
+# Java / Spring Boot
+
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Maven
+
+**/target/
+
+# Flutter
+
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+
+# Android
+
+frontend/android/.gradle/
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+
+# Firebase
+
+google-services.json
+GoogleService-Info.plist
+
+# AI / Agent Files
+
+agents/
+agent/
+.ai/
+.kiro/
+.cursor/
+.copilot/
+
+# Temporary Files
+
+*.tmp
+*.temp
+
+# Secrets
+
+application-local.properties
+application-dev.properties
+secrets.properties
+*.key
+*.pem
+*.p12

@@ -1,0 +1,2 @@
+$env:JWT_SECRET="2VZxTJB9NQjZCtQ8o8a7z9b7bK7NLmc5Jj5nb9oWIVo="
+$env:MONGODB_URI="mongodb+srv://karthikagrawal05_db_user:C6v8SS5qOJV7GyYY@ar-stram-database.j1u9izp.mongodb.net/?appName=ar-stram-database"
