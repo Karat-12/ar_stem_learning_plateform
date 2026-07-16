@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/cyber_background.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../providers/auth_provider.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -251,6 +252,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Create an account'),
+                    ),
+                    const SizedBox(height: 8),
 
                     // Info Text
                     Text(

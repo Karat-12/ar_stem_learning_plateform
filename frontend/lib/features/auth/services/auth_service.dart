@@ -57,6 +57,34 @@ class AuthService {
     }
   }
 
+  /// Registers a new user account
+  Future<void> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final request = RegisterRequest(
+        displayName: displayName,
+        email: email,
+        password: password,
+      );
+
+      await _apiClient.post<Map<String, dynamic>>(
+        path: ApiConstants.registerEndpoint,
+        data: request.toJson(),
+        fromJson: (json) => json as Map<String, dynamic>,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Registration failed: ${e.toString()}',
+        originalError: e,
+      );
+    }
+  }
+
   /// Retrieves the current authenticated user
   Future<CurrentUser> getCurrentUser() async {
     try {

@@ -82,6 +82,41 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Registers a new user account
+  Future<void> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    _state = AuthState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authService.register(
+        displayName: displayName,
+        email: email,
+        password: password,
+      );
+
+      _state = AuthState.unauthenticated;
+      _currentUser = null;
+      _errorMessage = null;
+    } on ApiException catch (e) {
+      _state = AuthState.error;
+      _errorMessage = e.message;
+      _currentUser = null;
+      rethrow;
+    } catch (e) {
+      _state = AuthState.error;
+      _errorMessage = 'An unexpected error occurred';
+      _currentUser = null;
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   /// Logs out the current user
   Future<void> logout() async {
     try {
