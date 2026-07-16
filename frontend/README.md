@@ -1,140 +1,173 @@
-﻿# AR STEM Learning Prototype
+﻿# HoloSTEM Explorer — AR STEM Learning Platform
 
 A Flutter UI-first prototype for a **Domain-Independent Adaptive AR-Based Misconception Detection Framework for STEM Education**.
 
-This repository currently contains an interactive learning prototype focused on dashboard navigation, advanced STEM lab workspaces, rule-based learner feedback, and a cyberpunk glassmorphism UI. The main target is a prototype learning cockpit rather than a finished AR engine.
+HoloSTEM Explorer is an interactive learning cockpit that lets students build, manipulate, and test concepts across Data Structures, Digital Electronics, and Organic Chemistry through hands-on drag-and-drop labs with real-time adaptive feedback. The visual identity is a dark cyberpunk glassmorphism design system built entirely with Flutter's native rendering pipeline.
 
-## What Changed
+---
 
-- Updated README to reflect the actual implemented workspace state in the current codebase.
-- Replaced earlier roadmap text with a detailed summary of completed work, current lab flow, and placeholders.
-- Documented the current structure of dashboard, linked-list workspace, advanced STEM labs, and placeholder screens.
-- Highlighted where the prototype is working today and what remains planned.
-
-## Current Prototype Scope
+## Features
 
 ### Implemented
 
-- Responsive dashboard entry surface with navigation cards and status metrics.
-- Advanced STEM labs shell with domain and topic selection.
-- Data Structures workspaces:
-  - Linked List: draggable node placement, head pointer controls, insert/delete, traversal simulation, and rule-based feedback.
-  - Stack: PUSH / POP simulation, TOP pointer behavior, overflow/underflow feedback, and drag/drop value controls.
-  - Binary Tree: node placement, traversal options, hierarchy checks, and sequence validation.
-- Digital Electronics workspaces:
-  - Basic Logic Gates: AND, OR, NOT placement with gate selection and connection semantics.
-  - XOR Gate Builder: assemble XOR logic from primitive gates.
-  - Complex Gate Construction: NAND / NOR / XNOR exploration.
-  - Truth Table Simulator: gate board, input toggles, output evaluation, and feedback.
-- Organic Chemistry workspaces:
-  - Hydrocarbon Builder: place C/H atoms and build simple hydrocarbons.
-  - Sugar Structure Builder: simplified glucose/sucrose templates and bond validation.
-  - Alcohol & Functional Groups: OH / N attachments, bond order control, and valency feedback.
-  - Bond Simulator: interactive single/double/triple bond exploration.
-- Dedicated linked-list learning screen with explanation panels, interactive controls, and misconception detection.
-- Shared UI foundation in `lib/core`, `lib/navigation`, and `lib/shared/widgets` for consistent theme and visuals.
+| Feature | Status |
+|---|---|
+| Responsive dashboard with navigation cards and status metrics | Complete |
+| Advanced STEM Labs shell with domain and topic navigation | Complete |
+| Linked List workspace (dedicated screen) — drag nodes, head pointer, traversal, misconception detection | Complete |
+| Linked List workspace (inline in labs) — add/remove head, break links | Complete |
+| Stack workspace — PUSH/POP/TOP, overflow/underflow, drag-and-drop values | Complete |
+| Binary Tree workspace — node placement, inorder/preorder/postorder traversal simulation | Complete |
+| Basic Logic Gates workspace — AND/OR/NOT, gate placement and connections | Complete |
+| XOR Gate Builder — build XOR from AND/OR/NOT primitives | Complete |
+| Complex Gate Construction — NAND/NOR/XNOR exploration | Complete |
+| Truth Table Simulator — gate board, input toggles, truth table display | Complete |
+| Hydrocarbon Builder — place C/H atoms, single/double/triple bonds, load Methane/Ethene/Ethyne | Complete |
+| Sugar Structure Builder — glucose/sucrose templates, valency validation | Complete |
+| Alcohol & Functional Groups — OH/N attachments, ethanol/amine examples | Complete |
+| Bond Simulator — interactive bond order exploration with valency checking | Complete |
+| Rule-based adaptive misconception feedback in all workspaces | Complete |
+| Cyberpunk glassmorphism design system (AppColors, AppTheme, GlassCard) | Complete |
+| Responsive layout: NavigationRail (wide) / BottomNavigationBar (narrow) | Complete |
+| AR Simulation placeholder screen | Placeholder |
+| Progress Tracker placeholder screen | Placeholder |
 
-### Partially Implemented
+### Not Yet Implemented
 
-- Rule-based misconception feedback in selected UI states and learning workspaces.
-- Prototype validation logic for selected data structure, circuit, and molecule interactions.
-- Responsive layout adaptation for wide and narrow screens.
-- Guided topic flow inside the advanced STEM labs shell.
+- AR camera integration and 3D scene anchoring
+- Persistent learner analytics and progress storage
+- Backend API integration
+- Authentication and user sessions
+- Adaptive curriculum sequencing
+- Domain-independent misconception engine
+- Concept Board feature
 
-### Placeholder / Planned
+---
 
-- AR Simulation mode is a placeholder screen without camera integration.
-- Progress Tracker is a placeholder without learner analytics or persistence.
-- Dedicated Concept Board feature is not currently present in `lib/features`.
-- Persistent learner analytics, progress storage, and adaptive curriculum sequencing are not built yet.
-- Full domain-independent misconception engine and real 3D AR anchoring remain future work.
+## Technology Stack
 
-## Project Structure
+| Layer | Technology |
+|---|---|
+| Language | Dart 3 (SDK `^3.11.5`) |
+| Framework | Flutter (Material 3, dark theme) |
+| State management | Local `StatefulWidget` + `setState` (no external library) |
+| Navigation | Index-based shell navigation + `Navigator.push` for standalone screens |
+| Animation | Flutter's native `AnimationController`, `TweenAnimationBuilder`, `AnimatedSwitcher`, `CustomPainter` |
+| UI style | Cyberpunk glassmorphism — `BackdropFilter`, `BoxShadow`, neon accents |
+| Persistence | None (UI prototype only) |
+| Backend | None (UI prototype only) |
+| Dependencies | `cupertino_icons ^1.0.8` (only external package) |
 
-```text
-lib/
-  main.dart
-  app.dart
-  core/
-    theme/
-      app_colors.dart
-      app_theme.dart
-  navigation/
-    app_shell.dart
-  shared/
-    widgets/
-      cyber_background.dart
-      glass_card.dart
-      neon_action_card.dart
-      pulse_orb.dart
-      status_chip.dart
-  features/
-    dashboard/
-      dashboard_screen.dart
-    linked_list/
-      linked_list_learning_screen.dart
-      models/
-        linked_list_node_model.dart
-      widgets/
-        floating_particles.dart
-        holographic_explanation_panel.dart
-        linked_list_playground.dart
-        misconception_feedback_panel.dart
-        neon_linked_list_node.dart
-        operation_control_panel.dart
-    advanced_workspaces/
-      advanced_stem_workspaces_screen.dart
-    placeholder/
-      feature_placeholder_screen.dart
+---
+
+## Current Implementation Status
+
+This is a **UI-first prototype**. The interactive learning mechanics, rule-based feedback panels, and all three STEM domains are fully functional at the UI level. There is no backend, no user accounts, no persistent storage, and no AR camera integration. Every screen renders, every lab is interactive, and the misconception detection system produces contextual feedback — all driven by local widget state.
+
+The codebase is intentionally kept minimal. There is no state management library, no routing library, and no dependency injection framework. This keeps the prototype easy to run, modify, and hand off while the full architecture is designed.
+
+---
+
+## Folder Overview
+
+```
+frontend/
+├── lib/                        # All Dart source code
+│   ├── main.dart               # Application entry point
+│   ├── app.dart                # Root MaterialApp widget
+│   ├── core/                   # App-wide foundation (theme, constants)
+│   │   └── theme/
+│   │       ├── app_colors.dart # All color constants
+│   │       └── app_theme.dart  # ThemeData configuration
+│   ├── navigation/             # Shell and routing structure
+│   │   └── app_shell.dart      # Root scaffold with nav rail / bottom nav
+│   ├── shared/                 # Reusable cross-feature widgets
+│   │   └── widgets/
+│   │       ├── cyber_background.dart   # Full-screen gradient + grid + glows
+│   │       ├── glass_card.dart         # Frosted glass card container
+│   │       ├── neon_action_card.dart   # Hover-animated navigation card
+│   │       ├── pulse_orb.dart          # Pulsing animated ring widget
+│   │       └── status_chip.dart        # Pill-shaped label with dot indicator
+│   └── features/               # Feature-first screen and widget modules
+│       ├── dashboard/
+│       │   └── dashboard_screen.dart
+│       ├── advanced_workspaces/
+│       │   └── advanced_stem_workspaces_screen.dart
+│       ├── linked_list/
+│       │   ├── linked_list_learning_screen.dart
+│       │   ├── models/
+│       │   │   └── linked_list_node_model.dart
+│       │   └── widgets/
+│       │       ├── floating_particles.dart
+│       │       ├── holographic_explanation_panel.dart
+│       │       ├── linked_list_playground.dart
+│       │       ├── misconception_feedback_panel.dart
+│       │       ├── neon_linked_list_node.dart
+│       │       └── operation_control_panel.dart
+│       └── placeholder/
+│           └── feature_placeholder_screen.dart
+├── android/                    # Android platform project
+├── windows/                    # Windows platform project
+├── pubspec.yaml                # Package manifest
+└── analysis_options.yaml       # Dart lint rules
 ```
 
-## Core Features
+---
 
-### Dashboard
+## How to Run the Project
 
-Located at `lib/features/dashboard/dashboard_screen.dart`.
+**Prerequisites:**
+- Flutter SDK installed and on your `PATH`
+- A connected device, emulator, or desktop target enabled
 
-- Entry point for the prototype.
-- Action cards for launching advanced labs, AR placeholder, and progress placeholder.
-- Status metrics strip showing prototype readiness.
-- Responsive layout with adaptive grid behavior.
-
-### Advanced STEM Labs
-
-Located at `lib/features/advanced_workspaces/advanced_stem_workspaces_screen.dart`.
-
-- Domain selection for Data Structures, Digital Electronics, and Organic Chemistry.
-- Topic selection and workspace navigation inside a single screen.
-- Interactive labs using drag/drop, animated boards, and feedback panels.
-- Working lab areas for linked lists, stacks, binary trees, logic circuits, and molecule building.
-
-### Linked List Workspace
-
-Located at `lib/features/linked_list/linked_list_learning_screen.dart`.
-
-- Dedicated learning workspace for linked list concepts.
-- Draggable nodes, head pointer state, and link visualization.
-- Operations for inserting nodes, deleting tail nodes, toggling broken links, and traversal order.
-- Feedback panel with misconception warnings for missing head, broken connections, and reversed traversal.
-
-### Placeholder Screens
-
-Located at `lib/features/placeholder/feature_placeholder_screen.dart`.
-
-- AR Simulation placeholder screen.
-- Progress Tracker placeholder screen.
-- Designed as future targets for AR mode and analytics integration.
-
-## Running the App
-
-Install dependencies:
+**Install dependencies:**
 
 ```bash
 flutter pub get
 ```
 
-Run the app:
+**Run on your default device:**
 
 ```bash
 flutter run
 ```
+
+**Run on a specific target:**
+
+```bash
+# Windows desktop
+flutter run -d windows
+
+# Chrome (web)
+flutter run -d chrome
+
+# Android emulator
+flutter run -d emulator-5554
+```
+
+**Check available devices:**
+
+```bash
+flutter devices
+```
+
+The app targets Flutter stable. No additional setup, no environment variables, and no backend services are required to run the prototype.
+
+---
+
+## Future Roadmap
+
+The following areas are planned for upcoming development phases:
+
+| Area | Description |
+|---|---|
+| `lib/features/auth/` | User authentication — login, registration, session handling |
+| `lib/features/progress/` | Learner analytics dashboard — misconception history, topic mastery, session summaries |
+| `lib/features/analytics/` | Backend-connected data layer for tracking events and learning outcomes |
+| `lib/features/ai/` | AI-driven misconception inference engine to replace the current rule-based checks |
+| `lib/features/session/` | Session management — track active learning sessions, resume state, sync to backend |
+| `lib/features/topic/` | Topic browser — structured curriculum map, prerequisites, difficulty levels |
+| AR Integration | Camera access, 3D anchoring, spatial overlays on physical objects |
+| State Management | Introduce a state management solution (Provider, Riverpod, or Bloc) as complexity grows |
+| Backend API | Connect to a REST or GraphQL backend for persistence and personalization |
+| Testing | Unit tests for rule-based feedback logic, widget tests for core UI components |

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme/app_colors.dart';
+import '../features/auth/providers/auth_provider.dart';
 import '../features/advanced_workspaces/advanced_stem_workspaces_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/placeholder/feature_placeholder_screen.dart';
@@ -45,6 +47,110 @@ class _AppShellState extends State<AppShell> {
         ];
 
         return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            actions: [
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Center(
+                      child: PopupMenuButton<String>(
+                        onSelected: (value) async {
+                          if (value == 'logout') {
+                            await authProvider.logout();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Logged out successfully'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            enabled: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  authProvider.currentUser?.fullName ?? 'User',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  authProvider.currentUser?.email ?? '',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem<String>(
+                            value: 'logout',
+                            child: Row(
+                              children: [
+                                Icon(Icons.logout),
+                                SizedBox(width: 8),
+                                Text('Logout'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.glass,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.cyan.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [AppColors.cyan, AppColors.pink],
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: AppColors.backgroundTop,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_drop_down,
+                                size: 20,
+                                color: AppColors.cyan,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
           body: CyberBackground(
             child: Row(
               children: [
