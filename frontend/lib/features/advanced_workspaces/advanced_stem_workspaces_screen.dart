@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/status_chip.dart';
+import '../sessions/providers/session_provider.dart';
 
 class AdvancedStemWorkspacesScreen extends StatefulWidget {
   const AdvancedStemWorkspacesScreen({super.key});
@@ -111,10 +113,32 @@ class _AdvancedStemWorkspacesScreenState
   }
 
   void _openTopic(int index) {
+    final sessionProvider = context.read<SessionProvider>();
+
+    if (_topicIndex != null) {
+      sessionProvider.endSession().catchError((_) {});
+    }
+
     setState(() => _topicIndex = index);
+
+    final domainCode = _mapDomainCode(_domainIndex!);
+    final topicCode = _mapTopicCode(_domainIndex!, index);
+    final activityCode = 'workspace';
+
+    sessionProvider
+        .startSession(
+          domainCode: domainCode,
+          topicCode: topicCode,
+          activityCode: activityCode,
+        )
+        .catchError((_) {});
   }
 
   void _goBack() {
+    final sessionProvider = context.read<SessionProvider>();
+    if (_topicIndex != null) {
+      sessionProvider.endSession().catchError((_) {});
+    }
     setState(() {
       if (_topicIndex != null) {
         _topicIndex = null;
@@ -122,6 +146,54 @@ class _AdvancedStemWorkspacesScreenState
         _domainIndex = null;
       }
     });
+  }
+
+  String _mapDomainCode(int domainIndex) {
+    switch (domainIndex) {
+      case 0:
+        return 'data-structures';
+      case 1:
+        return 'digital-electronics';
+      default:
+        return 'organic-chemistry';
+    }
+  }
+
+  String _mapTopicCode(int domainIndex, int topicIndex) {
+    if (domainIndex == 0) {
+      switch (topicIndex) {
+        case 0:
+          return 'linked-list';
+        case 1:
+          return 'stack';
+        default:
+          return 'binary-tree';
+      }
+    }
+
+    if (domainIndex == 1) {
+      switch (topicIndex) {
+        case 0:
+          return 'basic-logic-gates';
+        case 1:
+          return 'xor-gate-builder';
+        case 2:
+          return 'complex-gate-construction';
+        default:
+          return 'truth-table-simulator';
+      }
+    }
+
+    switch (topicIndex) {
+      case 0:
+        return 'hydrocarbon-builder';
+      case 1:
+        return 'sugar-structure-builder';
+      case 2:
+        return 'alcohol-functional-groups';
+      default:
+        return 'bond-simulator';
+    }
   }
 
   @override
@@ -353,7 +425,7 @@ class _LearningCardState extends State<_LearningCard> {
                       color: widget.accent.withValues(
                         alpha: 0.16 + glow * 0.22,
                       ),
-                      blurRadius: 22 + glow * 24,
+                      blurRadius: math.max(0.0, 22 + glow * 24),
                     ),
                   ],
                 ),
