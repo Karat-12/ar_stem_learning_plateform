@@ -1,0 +1,9 @@
+BUG:
+advanced_stem_workspaces_screen.dart
+
+Text shadow blur radius should be non-negative
+
+Occurs around line 2859
+
+Does not affect backend integration.
+

@@ -6,6 +6,8 @@ import 'core/network/api_client.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/progress/providers/progress_provider.dart';
+import 'features/progress/services/progress_service.dart';
 import 'features/sessions/providers/session_provider.dart';
 import 'features/sessions/services/session_service.dart';
 
@@ -29,6 +31,8 @@ void main() async {
   final authProvider = AuthProvider(authService: authService);
   final sessionService = SessionService(apiClient: apiClient);
   final sessionProvider = SessionProvider(sessionService: sessionService);
+  final progressService = ProgressService(apiClient: apiClient);
+  final progressProvider = ProgressProvider(progressService: progressService);
 
   // Restore session on app startup
   await authProvider.restoreSession();
@@ -40,8 +44,10 @@ void main() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<AuthService>.value(value: authService),
         Provider<SessionService>.value(value: sessionService),
+        Provider<ProgressService>.value(value: progressService),
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<SessionProvider>.value(value: sessionProvider),
+        ChangeNotifierProvider<ProgressProvider>.value(value: progressProvider),
       ],
       child: const StemArApp(),
     ),

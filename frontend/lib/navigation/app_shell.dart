@@ -6,6 +6,7 @@ import '../features/auth/providers/auth_provider.dart';
 import '../features/advanced_workspaces/advanced_stem_workspaces_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/placeholder/feature_placeholder_screen.dart';
+import '../features/progress/screens/progress_screen.dart';
 import '../shared/widgets/cyber_background.dart';
 
 class AppShell extends StatefulWidget {
@@ -37,13 +38,7 @@ class _AppShellState extends State<AppShell> {
             icon: Icons.view_in_ar_outlined,
             accent: AppColors.pink,
           ),
-          const FeaturePlaceholderScreen(
-            title: 'Progress Tracker',
-            message:
-                'Learner analytics and misconception history will be connected later.',
-            icon: Icons.insights_outlined,
-            accent: AppColors.lime,
-          ),
+          const ProgressScreen(),
         ];
 
         return Scaffold(

@@ -425,7 +425,7 @@ class _LearningCardState extends State<_LearningCard> {
                       color: widget.accent.withValues(
                         alpha: 0.16 + glow * 0.22,
                       ),
-                      blurRadius: math.max(0.0, 22 + glow * 24),
+                      blurRadius: math.max(0.0, 22 + glow * 24).toDouble(),
                     ),
                   ],
                 ),
