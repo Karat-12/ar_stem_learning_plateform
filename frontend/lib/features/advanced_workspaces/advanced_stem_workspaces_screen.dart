@@ -492,6 +492,95 @@ class _LearningCardState extends State<_LearningCard> {
   }
 }
 
+mixin _MisconceptionTracking<T extends StatefulWidget> on State<T> {
+  final Set<String> _activeMisconceptions = {};
+
+  void _updateMisconception({
+    required bool condition,
+    required String misconceptionCode,
+    required String misconceptionTitle,
+    required String description,
+    required String severity,
+  }) {
+    if (!condition) {
+      if (_activeMisconceptions.remove(misconceptionCode)) {
+        debugPrint('Misconception resolved: $misconceptionCode.');
+      }
+      return;
+    }
+
+    if (!_activeMisconceptions.add(misconceptionCode)) {
+      return;
+    }
+
+    debugPrint('Misconception detected: $misconceptionCode.');
+    unawaited(
+      _recordMisconception(
+        misconceptionCode: misconceptionCode,
+        misconceptionTitle: misconceptionTitle,
+        description: description,
+        severity: severity,
+      ),
+    );
+  }
+
+  Future<void> _recordMisconception({
+    required String misconceptionCode,
+    required String misconceptionTitle,
+    required String description,
+    required String severity,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final activeSession = context.read<SessionProvider>().activeSession;
+    if (activeSession == null || activeSession.id.isEmpty) {
+      debugPrint(
+        'Misconception recording skipped: no active session for '
+        '$misconceptionCode.',
+      );
+      return;
+    }
+
+    debugPrint(
+      'Misconception recording started: $misconceptionCode for session '
+      '${activeSession.id}.',
+    );
+
+    try {
+      final misconceptionService = MisconceptionService(
+        apiClient: context.read<ApiClient>(),
+      );
+      await misconceptionService.recordMisconception(
+        RecordMisconceptionRequest(
+          sessionId: activeSession.id,
+          topicCode: activeSession.topicCode,
+          misconceptionCode: misconceptionCode,
+          misconceptionTitle: misconceptionTitle,
+          description: description,
+          severity: severity,
+        ),
+      );
+      debugPrint('Misconception recording success: $misconceptionCode.');
+    } catch (e) {
+      debugPrint('Misconception recording failure for $misconceptionCode: $e');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      await context.read<ProgressProvider>().loadProgress();
+      debugPrint('Progress refresh success.');
+    } catch (e) {
+      debugPrint('Progress refresh failed: $e');
+    }
+  }
+}
+
 class StackLearningLab extends StatefulWidget {
   const StackLearningLab({super.key});
 
@@ -499,7 +588,8 @@ class StackLearningLab extends StatefulWidget {
   State<StackLearningLab> createState() => _StackLearningLabState();
 }
 
-class _StackLearningLabState extends State<StackLearningLab> {
+class _StackLearningLabState extends State<StackLearningLab>
+    with _MisconceptionTracking<StackLearningLab> {
   final List<String> _items = ['18', '27'];
   final int _capacity = 5;
   int _next = 42;
@@ -507,23 +597,31 @@ class _StackLearningLabState extends State<StackLearningLab> {
   String _feedback = 'Drag a value or press PUSH to grow the stack.';
   Color _accent = AppColors.cyan;
   bool _topMismatch = false;
+  bool _overflowAttempt = false;
+  bool _underflowAttempt = false;
 
   void _push([String? value]) {
     if (_items.length >= _capacity) {
+      setState(() => _overflowAttempt = true);
       _setFeedback('Stack overflow condition detected', AppColors.pink);
+      _detectStackMisconceptions();
       return;
     }
     setState(() {
       _items.add(value ?? '${_next++}');
       _activeIndex = _items.length - 1;
       _topMismatch = false;
+      _underflowAttempt = false;
     });
     _setFeedback('PUSH complete. TOP pointer moved upward.', AppColors.lime);
+    _detectStackMisconceptions();
   }
 
   Future<void> _pop() async {
     if (_items.isEmpty) {
+      setState(() => _underflowAttempt = true);
       _setFeedback('Invalid POP operation', AppColors.pink);
+      _detectStackMisconceptions();
       return;
     }
     setState(() => _activeIndex = _items.length - 1);
@@ -535,11 +633,13 @@ class _StackLearningLabState extends State<StackLearningLab> {
       _items.removeLast();
       _activeIndex = _items.length - 1;
       _topMismatch = false;
+      _overflowAttempt = false;
     });
     _setFeedback(
       'POP complete. Removed last inserted element.',
       AppColors.lime,
     );
+    _detectStackMisconceptions();
   }
 
   void _toggleTopMismatch() {
@@ -547,6 +647,31 @@ class _StackLearningLabState extends State<StackLearningLab> {
     _setFeedback(
       _topMismatch ? 'TOP pointer restored' : 'TOP pointer mismatch',
       _topMismatch ? AppColors.lime : AppColors.orange,
+    );
+    _detectStackMisconceptions();
+  }
+
+  void _detectStackMisconceptions() {
+    _updateMisconception(
+      condition: _overflowAttempt,
+      misconceptionCode: 'DSA_STACK_OVERFLOW',
+      misconceptionTitle: 'Stack Overflow',
+      description: 'A PUSH operation was attempted while the stack was full.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: _underflowAttempt,
+      misconceptionCode: 'DSA_STACK_UNDERFLOW',
+      misconceptionTitle: 'Stack Underflow',
+      description: 'A POP operation was attempted on an empty stack.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: _topMismatch,
+      misconceptionCode: 'DSA_STACK_TOP_POINTER_MISMATCH',
+      misconceptionTitle: 'Stack TOP Pointer Mismatch',
+      description: 'The TOP pointer does not identify the top stack element.',
+      severity: 'MEDIUM',
     );
   }
 
@@ -645,7 +770,8 @@ class BinaryTreeLearningLab extends StatefulWidget {
   State<BinaryTreeLearningLab> createState() => _BinaryTreeLearningLabState();
 }
 
-class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab> {
+class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab>
+    with _MisconceptionTracking<BinaryTreeLearningLab> {
   final List<_TreeNode> _nodes = [
     _TreeNode('A', const Offset(270, 48)),
     _TreeNode('B', const Offset(150, 170)),
@@ -657,6 +783,7 @@ class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab> {
   Color _accent = AppColors.cyan;
   bool _badHierarchy = false;
   bool _badTraversal = false;
+  bool _duplicateNodeAttempt = false;
 
   void _move(String label, Offset delta) {
     setState(() {
@@ -668,14 +795,18 @@ class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab> {
 
   void _addNode(String label) {
     if (_nodes.any((node) => node.label == label)) {
+      setState(() => _duplicateNodeAttempt = true);
       _setFeedback('Node $label already exists on the tree', AppColors.orange);
+      _detectTreeMisconceptions();
       return;
     }
     setState(() {
       _nodes.add(_TreeNode(label, const Offset(250, 340)));
+      _duplicateNodeAttempt = false;
       _feedback = 'Placed node $label on the board. Drag to position it.';
       _accent = AppColors.lime;
     });
+    _detectTreeMisconceptions();
   }
 
   Future<void> _traverse(String mode) async {
@@ -716,6 +847,7 @@ class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab> {
           : 'Parent-child hierarchy restored',
       _badHierarchy ? AppColors.pink : AppColors.lime,
     );
+    _detectTreeMisconceptions();
   }
 
   void _toggleTraversalMistake() {
@@ -725,6 +857,31 @@ class _BinaryTreeLearningLabState extends State<BinaryTreeLearningLab> {
           ? 'Invalid traversal order armed'
           : 'Traversal sequence restored',
       _badTraversal ? AppColors.orange : AppColors.lime,
+    );
+    _detectTreeMisconceptions();
+  }
+
+  void _detectTreeMisconceptions() {
+    _updateMisconception(
+      condition: _badHierarchy,
+      misconceptionCode: 'DSA_INVALID_TREE_HIERARCHY',
+      misconceptionTitle: 'Invalid Tree Hierarchy',
+      description: 'A parent-child relationship in the binary tree is invalid.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: _badTraversal,
+      misconceptionCode: 'DSA_INVALID_TREE_TRAVERSAL',
+      misconceptionTitle: 'Invalid Tree Traversal',
+      description: 'The traversal order does not match the selected algorithm.',
+      severity: 'MEDIUM',
+    );
+    _updateMisconception(
+      condition: _duplicateNodeAttempt,
+      misconceptionCode: 'DSA_DUPLICATE_TREE_NODE',
+      misconceptionTitle: 'Duplicate Tree Node',
+      description: 'A node with the same label already exists in the tree.',
+      severity: 'LOW',
     );
   }
 
@@ -1649,7 +1806,8 @@ class SugarStructureBuilderLab extends StatefulWidget {
       _SugarStructureBuilderLabState();
 }
 
-class _SugarStructureBuilderLabState extends State<SugarStructureBuilderLab> {
+class _SugarStructureBuilderLabState extends State<SugarStructureBuilderLab>
+    with _MisconceptionTracking<SugarStructureBuilderLab> {
   final List<_AtomNode> _atoms = [
     _AtomNode('C', const Offset(220, 180)),
     _AtomNode('O', const Offset(330, 170)),
@@ -1800,6 +1958,7 @@ class _SugarStructureBuilderLabState extends State<SugarStructureBuilderLab> {
       _feedback = '$name structure loaded';
       _accent = AppColors.lime;
     });
+    _detectValency();
   }
 
   void _detectValency() {
@@ -1835,6 +1994,20 @@ class _SugarStructureBuilderLabState extends State<SugarStructureBuilderLab> {
         _accent = AppColors.lime;
       }
     });
+    _updateMisconception(
+      condition: invalid,
+      misconceptionCode: 'OC_INVALID_SUGAR_VALENCY',
+      misconceptionTitle: 'Invalid Sugar Valency',
+      description: 'A sugar-structure atom exceeds its allowed valency.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: hydrogenMismatch,
+      misconceptionCode: 'OC_SUGAR_HYDROGEN_MISMATCH',
+      misconceptionTitle: 'Sugar Hydrogen Mismatch',
+      description: 'A hydrogen atom in the sugar structure does not have one bond.',
+      severity: 'MEDIUM',
+    );
   }
 
   void _setFeedback(String message, Color color) {
@@ -1934,7 +2107,8 @@ class AlcoholFunctionalGroupsLab extends StatefulWidget {
 }
 
 class _AlcoholFunctionalGroupsLabState
-    extends State<AlcoholFunctionalGroupsLab> {
+    extends State<AlcoholFunctionalGroupsLab>
+    with _MisconceptionTracking<AlcoholFunctionalGroupsLab> {
   final List<_AtomNode> _atoms = [
     _AtomNode('C', const Offset(220, 180)),
     _AtomNode('O', const Offset(330, 180)),
@@ -2083,6 +2257,7 @@ class _AlcoholFunctionalGroupsLabState
       _feedback = '$name structure loaded';
       _accent = AppColors.lime;
     });
+    _detectValency();
   }
 
   void _detectValency() {
@@ -2118,6 +2293,20 @@ class _AlcoholFunctionalGroupsLabState
         _accent = AppColors.lime;
       }
     });
+    _updateMisconception(
+      condition: invalid,
+      misconceptionCode: 'OC_INVALID_FUNCTIONAL_GROUP_VALENCY',
+      misconceptionTitle: 'Invalid Functional Group Valency',
+      description: 'A functional-group atom exceeds its allowed valency.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: hydrogenMismatch,
+      misconceptionCode: 'OC_FUNCTIONAL_GROUP_HYDROGEN_MISMATCH',
+      misconceptionTitle: 'Functional Group Hydrogen Mismatch',
+      description: 'A hydrogen atom in the functional group does not have one bond.',
+      severity: 'MEDIUM',
+    );
   }
 
   void _setFeedback(String message, Color color) {
@@ -2223,7 +2412,8 @@ class BondSimulatorLab extends StatefulWidget {
   State<BondSimulatorLab> createState() => _BondSimulatorLabState();
 }
 
-class _BondSimulatorLabState extends State<BondSimulatorLab> {
+class _BondSimulatorLabState extends State<BondSimulatorLab>
+    with _MisconceptionTracking<BondSimulatorLab> {
   final List<_AtomNode> _atoms = [
     _AtomNode('C', const Offset(230, 180)),
     _AtomNode('C', const Offset(330, 180)),
@@ -2357,6 +2547,20 @@ class _BondSimulatorLabState extends State<BondSimulatorLab> {
         _accent = AppColors.lime;
       }
     });
+    _updateMisconception(
+      condition: invalid,
+      misconceptionCode: 'OC_INVALID_BOND_VALENCY',
+      misconceptionTitle: 'Invalid Bond Valency',
+      description: 'An atom exceeds its allowed valency in the bond simulator.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: hydrogenMismatch,
+      misconceptionCode: 'OC_BOND_HYDROGEN_MISMATCH',
+      misconceptionTitle: 'Bond Hydrogen Mismatch',
+      description: 'A hydrogen atom in the bond simulator does not have one bond.',
+      severity: 'MEDIUM',
+    );
   }
 
   void _setFeedback(String message, Color color) {
@@ -2456,7 +2660,8 @@ class HydrocarbonBuilderLab extends StatefulWidget {
   State<HydrocarbonBuilderLab> createState() => _HydrocarbonBuilderLabState();
 }
 
-class _HydrocarbonBuilderLabState extends State<HydrocarbonBuilderLab> {
+class _HydrocarbonBuilderLabState extends State<HydrocarbonBuilderLab>
+    with _MisconceptionTracking<HydrocarbonBuilderLab> {
   final List<_AtomNode> _atoms = [
     _AtomNode('C', const Offset(260, 200)),
     _AtomNode('H', const Offset(260, 80)),
@@ -2645,6 +2850,7 @@ class _HydrocarbonBuilderLabState extends State<HydrocarbonBuilderLab> {
       _feedback = '$name structure loaded';
       _accent = AppColors.lime;
     });
+    _detectValency();
   }
 
   void _detectValency() {
@@ -2680,6 +2886,20 @@ class _HydrocarbonBuilderLabState extends State<HydrocarbonBuilderLab> {
         _accent = AppColors.lime;
       }
     });
+    _updateMisconception(
+      condition: invalid,
+      misconceptionCode: 'OC_INVALID_VALENCY',
+      misconceptionTitle: 'Invalid Valency',
+      description: 'An atom exceeds its allowed valency in the hydrocarbon structure.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: hydrogenMismatch,
+      misconceptionCode: 'OC_HYDROGEN_VALENCY_MISMATCH',
+      misconceptionTitle: 'Hydrogen Valency Mismatch',
+      description: 'A hydrogen atom in the hydrocarbon structure does not have one bond.',
+      severity: 'MEDIUM',
+    );
   }
 
   void _setFeedback(String message, Color color) {
