@@ -12,6 +12,7 @@ class ApiConstants {
   static const String loginEndpoint = '/api/v1/auth/login';
   static const String registerEndpoint = '/api/v1/auth/register';
   static const String currentUserEndpoint = '/api/v1/users/me';
+  static const String misconceptionsEndpoint = '/api/v1/misconceptions';
 
   // Headers
   static const String contentTypeHeader = 'Content-Type';

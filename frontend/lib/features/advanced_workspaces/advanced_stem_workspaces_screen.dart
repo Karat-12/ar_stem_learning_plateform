@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/status_chip.dart';
+import '../misconceptions/models/record_misconception_request.dart';
+import '../misconceptions/services/misconception_service.dart';
+import '../progress/providers/progress_provider.dart';
 import '../sessions/providers/session_provider.dart';
 
 class AdvancedStemWorkspacesScreen extends StatefulWidget {
@@ -3262,6 +3267,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
   String _feedback = 'Drag node chips onto the list board to build the chain.';
   Color _accent = AppColors.cyan;
   bool _brokenLink = false;
+  Set<String> _activeMisconceptions = {};
 
   void _addNode(String label) {
     if (_nodes.any((node) => node.label == label)) {
@@ -3275,6 +3281,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
       _brokenLink = false;
     });
     _setFeedback('Node $label added. Connect it to the tail.', AppColors.lime);
+    _detectMisconceptions();
   }
 
   void _removeHead() {
@@ -3289,6 +3296,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
           'Removed head node ${removed.label}. New head is ${_nodes.isEmpty ? 'NULL' : _nodes.first.label}.';
       _accent = AppColors.lime;
     });
+    _detectMisconceptions();
   }
 
   void _toggleBrokenLink() {
@@ -3299,6 +3307,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
           : 'Head pointer and next links restored';
       _accent = _brokenLink ? AppColors.orange : AppColors.lime;
     });
+    _detectMisconceptions();
   }
 
   void _moveNode(String label, Offset delta) {
@@ -3307,6 +3316,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
       if (index < 0) return;
       _nodes[index] = _nodes[index].copyWith(_nodes[index].position + delta);
     });
+    _detectMisconceptions();
   }
 
   bool get _invalidSequence {
@@ -3316,6 +3326,116 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
       }
     }
     return false;
+  }
+
+  void _detectMisconceptions() {
+    _updateMisconception(
+      condition: _nodes.isEmpty,
+      misconceptionCode: 'DSA_HEAD_POINTER_MISSING',
+      misconceptionTitle: 'Head Node Missing',
+      description: 'The linked list has no head node assigned.',
+      severity: 'HIGH',
+    );
+    _updateMisconception(
+      condition: _brokenLink,
+      misconceptionCode: 'DSA_BROKEN_LINKED_LIST',
+      misconceptionTitle: 'Broken Linked List',
+      description: 'A node link is broken, so the linked list is disconnected.',
+      severity: 'MEDIUM',
+    );
+    _updateMisconception(
+      condition: _invalidSequence,
+      misconceptionCode: 'DSA_INVALID_TRAVERSAL',
+      misconceptionTitle: 'Invalid Traversal',
+      description:
+          'Nodes are ordered incorrectly, resulting in an invalid traversal path.',
+      severity: 'MEDIUM',
+    );
+  }
+
+  void _updateMisconception({
+    required bool condition,
+    required String misconceptionCode,
+    required String misconceptionTitle,
+    required String description,
+    required String severity,
+  }) {
+    if (!condition) {
+      if (_activeMisconceptions.remove(misconceptionCode)) {
+        debugPrint('Misconception resolved: $misconceptionCode.');
+      }
+      return;
+    }
+
+    if (!_activeMisconceptions.add(misconceptionCode)) {
+      return;
+    }
+
+    debugPrint('Misconception detected: $misconceptionCode.');
+    unawaited(
+      _recordMisconception(
+        misconceptionCode: misconceptionCode,
+        misconceptionTitle: misconceptionTitle,
+        description: description,
+        severity: severity,
+      ),
+    );
+  }
+
+  Future<void> _recordMisconception({
+    required String misconceptionCode,
+    required String misconceptionTitle,
+    required String description,
+    required String severity,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final activeSession = context.read<SessionProvider>().activeSession;
+    if (activeSession == null || activeSession.id.isEmpty) {
+      debugPrint(
+        'Misconception recording skipped: no active session for '
+        '$misconceptionCode.',
+      );
+      return;
+    }
+
+    debugPrint(
+      'Misconception recording started: $misconceptionCode for session '
+      '${activeSession.id}.',
+    );
+
+    try {
+      final misconceptionService = MisconceptionService(
+        apiClient: context.read<ApiClient>(),
+      );
+      await misconceptionService.recordMisconception(
+        RecordMisconceptionRequest(
+          sessionId: activeSession.id,
+          topicCode: activeSession.topicCode,
+          misconceptionCode: misconceptionCode,
+          misconceptionTitle: misconceptionTitle,
+          description: description,
+          severity: severity,
+        ),
+      );
+      debugPrint('Misconception recording success: $misconceptionCode.');
+    } catch (e) {
+      debugPrint('Misconception recording failure for $misconceptionCode: $e');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      await context.read<ProgressProvider>().loadProgress();
+      debugPrint('Progress refresh success.');
+    } catch (e) {
+      debugPrint('Progress refresh failed: $e');
+    }
   }
 
   void _setFeedback(String message, Color color) {

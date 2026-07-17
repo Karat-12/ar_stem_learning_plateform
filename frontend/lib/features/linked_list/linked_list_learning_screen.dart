@@ -1,9 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/cyber_background.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/status_chip.dart';
+import '../misconceptions/models/record_misconception_request.dart';
+import '../misconceptions/services/misconception_service.dart';
+import '../progress/providers/progress_provider.dart';
+import '../sessions/providers/session_provider.dart';
 import 'models/linked_list_node_model.dart';
 import 'widgets/floating_particles.dart';
 import 'widgets/holographic_explanation_panel.dart';
@@ -31,6 +39,7 @@ class _LinkedListLearningScreenState extends State<LinkedListLearningScreen> {
   bool _connectionBroken = false;
   bool _reverseTraversal = false;
   int? _activeTraversalId;
+  String? _activeMisconceptionCode;
   String _feedback = 'Ready: arrange nodes or run an operation.';
   Color _feedbackColor = AppColors.cyan;
 
@@ -130,28 +139,106 @@ class _LinkedListLearningScreenState extends State<LinkedListLearningScreen> {
   }
 
   void _detectMisconceptions() {
+    String? misconceptionCode;
+    String? misconceptionTitle;
+    String? description;
+    String? severity;
+
     setState(() {
       if (_headNodeId == null) {
         _feedback = 'Head node missing';
         _feedbackColor = AppColors.pink;
-        return;
-      }
-
-      if (_connectionBroken) {
+        misconceptionCode = 'DSA_HEAD_POINTER_MISSING';
+        misconceptionTitle = 'Head Node Missing';
+        description = 'The linked list has no head pointer assigned.';
+        severity = 'HIGH';
+      } else if (_connectionBroken) {
         _feedback = 'Node linkage mismatch detected';
         _feedbackColor = AppColors.pink;
-        return;
-      }
-
-      if (_reverseTraversal) {
+        misconceptionCode = 'DSA_BROKEN_LINKED_LIST';
+        misconceptionTitle = 'Broken Linked List';
+        description = 'A node link is broken, so the linked list is disconnected.';
+        severity = 'MEDIUM';
+      } else if (_reverseTraversal) {
         _feedback = 'Traversal path incorrect';
         _feedbackColor = AppColors.orange;
+        misconceptionCode = 'DSA_INVALID_TRAVERSAL';
+        misconceptionTitle = 'Invalid Traversal';
+        description = 'Traversal is moving from tail to head instead of head to tail.';
+        severity = 'MEDIUM';
+      } else {
+        _feedback = 'Great! Head and node links form a valid left-to-right path.';
+        _feedbackColor = AppColors.lime;
+      }
+    });
+
+    if (misconceptionCode == _activeMisconceptionCode) {
+      return;
+    }
+
+    _activeMisconceptionCode = misconceptionCode;
+    if (misconceptionCode == null) {
+      return;
+    }
+
+    unawaited(
+      _recordMisconception(
+        misconceptionCode: misconceptionCode!,
+        misconceptionTitle: misconceptionTitle!,
+        description: description!,
+        severity: severity!,
+      ),
+    );
+  }
+
+  Future<void> _recordMisconception({
+    required String misconceptionCode,
+    required String misconceptionTitle,
+    required String description,
+    required String severity,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final activeSession = context.read<SessionProvider>().activeSession;
+    if (activeSession == null || activeSession.id.isEmpty) {
+      debugPrint(
+        'Misconception recording skipped: no active session for '
+        '$misconceptionCode.',
+      );
+      return;
+    }
+
+    debugPrint(
+      'Recording misconception: $misconceptionCode for session '
+      '${activeSession.id}.',
+    );
+
+    try {
+      final misconceptionService = MisconceptionService(
+        apiClient: context.read<ApiClient>(),
+      );
+      await misconceptionService.recordMisconception(
+        RecordMisconceptionRequest(
+          sessionId: activeSession.id,
+          topicCode: activeSession.topicCode,
+          misconceptionCode: misconceptionCode,
+          misconceptionTitle: misconceptionTitle,
+          description: description,
+          severity: severity,
+        ),
+      );
+      debugPrint('Misconception recorded: $misconceptionCode.');
+
+      if (!mounted) {
         return;
       }
-
-      _feedback = 'Great! Head and node links form a valid left-to-right path.';
-      _feedbackColor = AppColors.lime;
-    });
+      await context.read<ProgressProvider>().loadProgress();
+      debugPrint('Progress refreshed after recording $misconceptionCode.');
+    } catch (e) {
+      debugPrint('Misconception recording failed for $misconceptionCode: $e');
+    }
   }
 
   @override
