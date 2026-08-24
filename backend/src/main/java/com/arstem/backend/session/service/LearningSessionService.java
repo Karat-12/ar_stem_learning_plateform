@@ -25,8 +25,14 @@ public class LearningSessionService {
 
     public LearningSession startSession(String authenticatedEmail, StartSessionRequest request) {
         User user = getAuthenticatedUser(authenticatedEmail);
-        LearningSession session = new LearningSession(user.getId(), request.domainCode().trim(), request.topicCode().trim(),
-                request.activityCode().trim());
+        // Normalize to uppercase so all collections share one canonical topicCode.
+        // Without this, a client sending "linked-list" would create a separate
+        // analytics bucket from "DSA_LINKED_LIST".
+        LearningSession session = new LearningSession(
+                user.getId(),
+                request.domainCode().trim().toUpperCase(),
+                request.topicCode().trim().toUpperCase(),
+                request.activityCode().trim().toUpperCase());
         session.markCreated();
         return learningSessionRepository.save(session);
     }

@@ -59,7 +59,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _authService.login(
+      await _authService.login(
         email: email,
         password: password,
       );

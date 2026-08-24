@@ -1,4 +1,9 @@
-# AR STEM Learning Platform - Core Vision & Project Blueprint
+# AR STEM Learning Platform — Core Vision & Project Blueprint
+
+> **Documentation status:** Updated to reflect the current implementation as of the latest code inspection.
+> Code is the source of truth. All status percentages reflect the actual implemented state.
+
+---
 
 ## Project Name
 
@@ -6,7 +11,7 @@ Adaptive Interactive Learning Framework with Augmented Reality for STEM Educatio
 
 ---
 
-# Core Vision
+## Core Vision
 
 The goal of this project is NOT to build another quiz app.
 
@@ -22,11 +27,11 @@ instead of rote memorization.
 
 ---
 
-# The Core Learning Loop
+## The Core Learning Loop
 
 This is the most important idea in the entire project.
 
-```text
+```
 Student Action
       ↓
 Rule-Based Evaluation
@@ -42,411 +47,327 @@ Improved Understanding
 
 ---
 
-# Example: Binary Search Tree
+## Example: Linked List Assessment
 
-Root Node:
+The system implements this loop concretely in the Linked List Assessment feature:
 
-40
+A student attempts to "Build the chain" — four unconnected nodes must be linked head-to-tail.
 
-Student places:
+**If the student sets no HEAD:**
+- Misconception detected: `DSA_HEAD_POINTER_MISSING`
+- Feedback: "No HEAD selected yet. Tap a node and choose 'Set as HEAD'."
 
-20
+**If a node is left disconnected:**
+- Misconception detected: `DSA_BROKEN_LINKED_LIST`
+- Feedback: "Node 40 is not connected. Draw an arrow from the previous node to reach it."
 
-on the RIGHT side.
+**If all connected but wrong order:**
+- Misconception detected: `DSA_INVALID_TRAVERSAL`
+- Feedback: "The chain is connected but the order is wrong."
 
-System detects:
-
-20 < 40
-
-Violation:
-Left Subtree < Root < Right Subtree
-
-Adaptive Feedback Levels:
-
-Level 1:
-Visual Feedback
-
-* Branch glows red
-* Node shakes
-* Incorrect connection highlighted
-
-Level 2:
-Hint
-
-"Smaller values belong to the left subtree."
-
-Level 3:
-Explanation
-
-"20 is less than 40, therefore it must be placed in the left subtree."
-
-Level 4:
-Animated Demonstration
-
-Show 20 moving to the correct location.
-
-This adaptive learning loop is the heart of the project.
+These misconceptions are recorded to the backend, factored into the mastery score, and used by the AI Coach to generate targeted study plans and revision suggestions.
 
 ---
 
-# Research Gap
+## Research Gap
 
 Most systems provide:
 
-* Visualization only
+- Visualization only
   OR
-* Adaptive learning only
+- Adaptive learning only
 
 Very few systems combine:
 
-* AR Visualization
-* Interaction
-* Conceptual Error Detection
-* Adaptive Learning
-* Explainable Feedback
+- AR Visualization
+- Interaction
+- Conceptual Error Detection
+- Adaptive Learning
+- Explainable Feedback
 
 inside a single framework.
 
 ---
 
-# Technical Philosophy
+## Technical Philosophy
 
 We intentionally use:
 
-Rule-Based Evaluation
+**Rule-Based Evaluation**
 
 instead of:
 
-Black-Box Machine Learning
+**Black-Box Machine Learning**
 
 because:
 
-* Explainability is critical in education
-* Students must understand WHY they are wrong
-* Structured STEM domains have clear logical rules
+- Explainability is critical in education
+- Students must understand WHY they are wrong
+- Structured STEM domains have clear logical rules
 
 Examples:
 
-BST:
-Left < Root < Right
-
-Stack:
-LIFO
-
-Logic Gates:
-Truth Table Rules
-
-Chemistry:
-Valency Rules
+- Linked List: HEAD pointer must exist; chain must be fully connected; traversal order must follow next-pointers
+- Stack: LIFO — overflow on push beyond capacity, underflow on pop from empty
+- Logic Gates: Truth table rules
+- Chemistry: Valency rules (C=4, H=1, O=2, N=3, Cl=1)
 
 ---
 
-# Current Technology Stack
+## Current Technology Stack
 
-Frontend
+### Frontend
 
-* Flutter
-* Dart
-* Glassmorphism UI
-* Interactive STEM Workspaces
+| Technology | Version | Role |
+|---|---|---|
+| Flutter | Stable | Cross-platform UI framework |
+| Dart SDK | `^3.11.5` | Language |
+| Provider | `^6.1.0` | State management (`ChangeNotifier`) |
+| Dio | `^5.4.0` | HTTP client |
+| flutter_secure_storage | `^9.2.0` | Secure JWT storage |
+| shared_preferences | `^2.2.2` | Local key-value storage (declared) |
+| camera | `^0.12.0+2` | Camera feed for AR screen (no ARCore) |
 
-Backend
+### Backend
 
-* Java 21
-* Spring Boot 3
-* Spring Security
-* JWT Authentication
-* MongoDB Atlas
+| Technology | Version | Role |
+|---|---|---|
+| Java | 21 | Language |
+| Spring Boot | 3.5.15 | Framework |
+| Spring Security | BOM-managed | Authentication/authorization |
+| Spring Data MongoDB | BOM-managed | ODM layer |
+| jjwt | 0.12.6 | JWT creation and validation |
+| BCrypt | Spring Security built-in | Password hashing |
+| MongoDB Atlas | Cloud | Primary data store |
+| Maven | — | Build tool |
 
-Version Control
+### Version Control
 
-* Git
-* GitHub
+- Git / GitHub
 
-Future
+### Future (Planned — Not Implemented)
 
-* Unity
-* AR Foundation
-* Gemini / OpenAI / Ollama
-
----
-
-# Current Frontend Status
-
-Completed:
-
-Dashboard
-
-Advanced STEM Labs
-
-Data Structures:
-
-* Linked List Workspace
-* Stack Workspace
-* Binary Tree Workspace
-
-Digital Electronics:
-
-* Logic Gates
-* XOR Builder
-* Complex Gates
-* Truth Table Simulator
-
-Chemistry:
-
-* Hydrocarbon Builder
-* Sugar Structure Builder
-* Functional Group Builder
-* Bond Simulator
-
-Status:
-
-Frontend UI ≈ 75–80% Complete
+- Unity + AR Foundation for true AR scenes
+- Gemini / OpenAI / Ollama for generative AI tutor
 
 ---
 
-# Current Backend Status
+## Current Frontend Status
 
-Completed:
+### Implemented
 
-Authentication
+| Feature | Status |
+|---|---|
+| Dark cyberpunk glassmorphism design system | Complete |
+| Responsive navigation (rail + bottom nav) | Complete |
+| Dashboard screen with action grid and metrics | Complete |
+| JWT-secured login screen with session restoration | Complete |
+| User registration screen | Complete |
+| Advanced STEM Labs shell (domain → topic → workspace) | Complete |
+| Linked List free-exploration workspace | Complete |
+| Linked List task-based construction curriculum (3 tasks) | Complete |
+| Linked List 3-challenge scored assessment | Complete |
+| Stack workspace (PUSH/POP/TOP, overflow/underflow) | Complete |
+| Binary Tree workspace (traversal animations) | Complete |
+| Basic Logic Gates workspace | Complete |
+| XOR Gate Builder | Complete |
+| Complex Gate Construction (NAND/NOR/XNOR) | Complete |
+| Truth Table Simulator | Complete |
+| Hydrocarbon Builder (valency validation) | Complete |
+| Sugar Structure Builder | Complete |
+| Alcohol & Functional Groups lab | Complete |
+| Bond Simulator | Complete |
+| Rule-based misconception detection in all workspaces | Complete |
+| Session tracking (start/end per workspace) | Complete |
+| Misconception recording to backend | Complete |
+| Progress screen (topic mastery, sessions, weak areas) | Complete |
+| AI Coach screen (5-panel adaptive report per topic) | Complete |
+| AR screen (live camera + Flutter canvas overlay) | Complete (camera-based, no ARCore) |
 
-* Register
-* Login
-* JWT Security
+### Partially Implemented
 
-Topics
+| Feature | Status |
+|---|---|
+| Topic catalog browser | Folder created (`lib/features/topic/`), no Dart files implemented |
+| AR interaction | Camera live feed works; 3D node scene overlaid on camera with Flutter canvas — no real spatial anchoring |
 
-Learning Sessions
+### Not Implemented
 
-Misconceptions
+- ARCore / AR Foundation spatial anchoring
+- True 3D rendering (Unity or native AR SDKs)
+- Token refresh / persistent login beyond valid JWT window
+- User registration from within a closed, invite-only system
 
-Progress Tracking
-
-Quiz Attempts
-
-Learning Analytics
-
-Status:
-
-Backend Core ≈ 95–100% Complete
-
----
-
-# Current AI Module Status
-
-Implemented:
-
-1. Recommendation Engine
-   GET /api/v1/ai/recommendations
-
-2. Learning Insights
-   GET /api/v1/ai/insights
-
-3. Feedback Generator
-   GET /api/v1/ai/feedback
-
-4. Study Plan Generator
-   GET /api/v1/ai/study-plan
-
-5. Revision Suggestions
-   GET /api/v1/ai/revision-suggestions
-
-Status:
-
-Rule-Based AI Layer ≈ 95% Complete
+**Frontend UI + Integration: ~90% Complete**
 
 ---
 
-# Important Clarification
+## Current Backend Status
 
-Current AI Module is:
+### Implemented
 
-Rule-Based Adaptive Intelligence
+| Module | Status |
+|---|---|
+| User registration (BCrypt, duplicate check) | Complete |
+| Login (BCrypt verify, JWT issue) | Complete |
+| Stateless JWT authentication filter | Complete |
+| Topic catalog (18 seeded topics) | Complete |
+| Learning session lifecycle (start / end) | Complete |
+| Misconception recording and retrieval | Complete |
+| Quiz attempt submission and scoring | Complete |
+| Progress projection (per topic, mastery score) | Complete |
+| Learning analytics (4-component mastery formula) | Complete |
+| Rule-based AI recommendations | Complete |
+| Rule-based AI learning insights | Complete |
+| Rule-based AI feedback | Complete |
+| Rule-based AI study plan generation | Complete |
+| Rule-based AI revision suggestions | Complete |
+| Topic code normalization migration | Complete |
+| Global exception handler with consistent error envelope | Complete |
 
-NOT
+### Not Implemented
 
-Generative AI
+| Feature | Notes |
+|---|---|
+| JWT refresh token | Access token only; no `/auth/refresh` endpoint |
+| Logout endpoint | No `/auth/logout`; token revocation not implemented |
+| Admin role endpoints | `ADMIN` role defined in the domain but no admin-specific routes exist |
+| `PATCH /users/me` | User profile editing not implemented |
+| AR-specific endpoints | `ar` package directory exists but is empty |
+| External AI/LLM integration | All AI services are fully rule-based; no Gemini/OpenAI/Ollama calls |
 
-Current AI:
-
-* Recommendations
-* Insights
-* Feedback
-* Study Plans
-
-using predefined educational rules.
-
-Future AI Service:
-
-* Error Explanations
-* Dynamic Hints
-* Question Generation
-* Personalized Revision Content
-
-using Gemini/OpenAI/Ollama.
-
----
-
-# Remaining Work
-
-Phase 3:
-Frontend ↔ Backend Integration
-
-Tasks:
-
-* Login Integration
-* JWT Storage
-* Session Tracking
-* Misconception Logging
-* Progress Retrieval
-* Analytics Retrieval
-* AI Endpoint Integration
+**Backend Core: ~95% Complete**
 
 ---
 
-Phase 4:
-Adaptive Feedback Engine
+## Current AI Module Status
 
-Implement:
+### Implemented (Rule-Based Adaptive Intelligence)
 
-Level 1:
-Visual Error Indicators
+All "AI" services are rule-based algorithms computed from MongoDB data. There is **no external AI/LLM integration**.
 
-Level 2:
-Hints
+| Endpoint | Implementation |
+|---|---|
+| `GET /api/v1/ai/recommendations` | Tier-based recommendation type derived from mastery score and active misconceptions |
+| `GET /api/v1/ai/recommendations/{topicCode}` | Same, scoped to one topic |
+| `GET /api/v1/ai/insights` | Strengths/weaknesses derived from mastery thresholds; topics needing practice flagged |
+| `GET /api/v1/ai/insights/{topicCode}` | Same, scoped to one topic |
+| `GET /api/v1/ai/feedback` | Per-topic feedback strings from mastery, quiz scores, misconception counts |
+| `GET /api/v1/ai/study-plan` | Task list generated from mastery tier (BEGINNER/DEVELOPING/PROFICIENT/MASTERED) |
+| `GET /api/v1/ai/study-plan/{topicCode}` | Same, scoped to one topic |
+| `GET /api/v1/ai/revision-suggestions` | Active misconceptions drive revision topic list and time estimates |
+| `GET /api/v1/ai/revision-suggestions/{topicCode}` | Same, scoped to one topic |
 
-Level 3:
-Detailed Explanations
+**Rule-Based AI Layer: 100% Complete**
 
-Level 4:
-Animated Demonstrations
+### Not Implemented (Planned Future AI Service)
 
-This phase directly implements the core learning loop.
+- Error explanations via LLM (Gemini/OpenAI/Ollama)
+- Dynamic natural-language hints
+- AI question generation
+- Personalized LLM-written revision content
 
----
-
-Phase 5:
-AR Integration
-
-Unity
-
-AR Foundation
-
-3D Models
-
-AR Interactions
-
-Real-world Anchoring
+The `ai_service/` directory exists at the project root but contains no implementation.
 
 ---
 
-Phase 6:
-AI Service
+## Remaining Work
 
-Separate ai_service
+### Phase 3 — Frontend ↔ Backend Integration (Current)
 
-Possible Models:
+**Completed:**
+- Login / JWT storage / session restoration
+- Session tracking (start/end per workspace)
+- Misconception logging to backend
+- Progress retrieval and display
+- AI Coach endpoint integration (5 parallel calls per topic)
+- Assessment quiz submission
 
-* Gemini
-* OpenAI
-* Ollama
-
-Features:
-
-* AI Tutor
-* Dynamic Explanations
-* Question Generation
-* Personalized Learning Support
-
----
-
-# Interview-Ready Terminology (How to Explain This Project)
-
-When explaining this project to an interviewer, you can describe it using the following structured concepts:
-
-* **Adaptive Learning System**
-  The platform dynamically adjusts feedback and guidance based on student actions.
-
-* **Intelligent Tutoring System (ITS)**
-  It behaves like a tutor by analyzing mistakes and guiding students step-by-step.
-
-* **Rule-Based Evaluation Engine**
-  Instead of black-box AI, the system uses domain-specific rules (e.g., BST properties, logic gate truth tables) to evaluate correctness.
-
-* **Conceptual Error Detection**
-  The system identifies *why* a student is wrong, not just *that* they are wrong.
-
-* **Adaptive Feedback Loop**
-  Feedback is delivered in progressive levels: visual cues → hints → explanations → demonstrations.
-
-* **Explainable AI (XAI)**
-  Every correction is transparent and understandable to the student.
-
-* **Misconception Analysis**
-  The system tracks recurring mistakes to identify learning gaps.
-
-* **Learning Analytics**
-  Student performance data is analyzed to generate insights and recommendations.
-
-* **Personalized Learning Path**
-  The system suggests topics and revision plans based on individual progress.
-
-* **Interactive STEM Visualization**
-  Concepts are learned through hands-on interaction rather than passive reading.
-
-* **AR-Assisted Learning (Future Scope)**
-  Augmented Reality will enable real-world visualization of abstract concepts.
-
-* **Progressive Scaffolding**
-  Guidance is gradually reduced as the student gains mastery.
-
-* **Mastery-Based Learning**
-  Students move forward only after understanding core concepts.
-
-* **Student Modeling**
-  The system maintains a profile of each learner’s strengths and weaknesses.
-
-* **Human-in-the-Loop Learning**
-  The system supports learning rather than replacing human reasoning.
+**Remaining:**
+- Topic catalog browser (frontend screen)
+- Registration confirmation flow improvements
+- Token refresh / logout server-side revocation
 
 ---
 
-# Current Overall Progress
+### Phase 4 — Adaptive Feedback Engine
 
-Backend Core:
-100%
+Adaptive visual feedback levels:
 
-Rule-Based AI:
-95%
-
-Frontend UI:
-80%
-
-Frontend Integration:
-15%
-
-Adaptive Feedback Loop:
-30%
-
-AR:
-5%
-
-Overall Project:
-~70% Complete
+- Level 1: Visual error indicators (partially implemented — color coding exists in workspaces)
+- Level 2: Hints (implemented in linked list assessment)
+- Level 3: Detailed explanations (implemented in AI Coach screen)
+- Level 4: Animated demonstrations (not yet implemented)
 
 ---
 
-# Golden Rule
+### Phase 5 — AR Integration (Planned)
+
+The current AR screen (`ArLinkedListScreen`) uses the `camera` package to display a live camera preview with a Flutter-rendered 3D-style linked list scene overlaid on top. This is **not true AR** — there is no spatial anchoring, no depth sensing, and no ARCore/ARKit integration.
+
+True AR requires:
+- Unity + AR Foundation, or
+- ARCore (Android) / ARKit (iOS) native integration
+
+This remains a future phase.
+
+---
+
+### Phase 6 — AI Service (Planned)
+
+A separate `ai_service/` directory exists at the project root. No implementation is present. Planned capabilities:
+
+- LLM-powered AI Tutor
+- Dynamic natural-language explanations
+- Question generation
+- Personalized learning support
+
+Possible models: Gemini, OpenAI, Ollama.
+
+---
+
+## Interview-Ready Terminology
+
+When explaining this project to an interviewer:
+
+- **Adaptive Learning System** — The platform adjusts feedback and guidance based on student actions and recorded misconceptions.
+- **Intelligent Tutoring System (ITS)** — Analyzes mistakes and guides students step-by-step through remediation tasks.
+- **Rule-Based Evaluation Engine** — Uses domain-specific rules (BST properties, logic gate truth tables, valency rules) to evaluate correctness without a black-box model.
+- **Conceptual Error Detection** — Identifies *why* a student is wrong, not just *that* they are wrong. Misconception codes like `DSA_HEAD_POINTER_MISSING` are semantically meaningful.
+- **Misconception Analysis** — Recurring mistakes are recorded per topic and per session. They are resolved automatically when quiz performance improves beyond a threshold.
+- **Mastery-Based Learning** — A 4-component formula (latest quiz score × 0.40, recent average × 0.30, misconception penalty × 0.20, session consistency × 0.10) drives a mastery score and level (BEGINNER → DEVELOPING → PROFICIENT → MASTERED).
+- **Personalized Learning Path** — The AI Coach aggregates analytics, active misconceptions, and quiz history to generate study plans and revision suggestions tailored to the individual student.
+- **Interactive STEM Visualization** — Concepts are learned through hands-on drag-and-drop interaction, not passive reading.
+- **Progressive Scaffolding** — Hints are provided progressively in the assessment (hint 1 → hint 2 → hint 3) before revealing the full explanation.
+- **Explainable AI (XAI)** — Every piece of feedback maps to a named misconception code and a human-readable explanation. There are no black-box decisions.
+- **Student Modeling** — Each learner has topic-level mastery scores, weak area lists, session histories, and misconception records stored per user.
+- **AR-Assisted Learning (Current: Camera Overlay)** — The AR tab provides a live camera feed with a Flutter-canvas linked list visualization overlay. Full spatial AR anchoring is planned for a future phase.
+- **Assessment → AI Coach Feedback Loop** — After completing the Linked List Assessment, the system automatically refreshes the AI Coach report, generating updated study plans, recommendations, and revision actions based on the new performance data.
+
+---
+
+## Current Overall Progress
+
+| Component | Status |
+|---|---|
+| Backend Core (REST API, security, data layer) | ~95% complete |
+| Rule-Based AI Layer | 100% complete |
+| Frontend UI (all lab workspaces) | ~95% complete |
+| Frontend ↔ Backend Integration | ~85% complete |
+| Linked List Assessment + AI Coach loop | 100% complete |
+| Adaptive Feedback Loop (visual levels) | ~40% complete |
+| AR (camera overlay only) | ~15% complete (true AR not started) |
+| External AI/LLM Service | 0% (planned) |
+
+**Overall Project: ~80% Complete**
+
+---
+
+## Golden Rule
 
 Whenever a design decision is made, ask:
 
-"Does this improve conceptual understanding through interaction, error detection, and adaptive guidance?"
+> "Does this improve conceptual understanding through interaction, error detection, and adaptive guidance?"
 
-If the answer is YES:
-
-Build it.
-
-If the answer is NO:
-
-It is probably outside the core project vision.
+If YES: Build it.
+If NO: It is probably outside the core project vision.

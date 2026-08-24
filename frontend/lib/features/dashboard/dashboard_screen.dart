@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../assessments/linked_list_assessment/screens/linked_list_assessment_screen.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/neon_action_card.dart';
 import '../../shared/widgets/pulse_orb.dart';
@@ -135,6 +136,21 @@ class _ActionGrid extends StatelessWidget {
         icon: Icons.map_outlined,
         accent: AppColors.violet,
         onTap: () => onOpenSection(1),
+      ),
+      NeonActionCard(
+        title: 'Linked List Assessment',
+        subtitle: 'Try the new V1 assessment flow for linked lists',
+        icon: Icons.quiz_outlined,
+        accent: AppColors.lime,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LinkedListAssessmentScreen(
+                onOpenSection: onOpenSection,
+              ),
+            ),
+          );
+        },
       ),
       NeonActionCard(
         title: 'AR Simulation',

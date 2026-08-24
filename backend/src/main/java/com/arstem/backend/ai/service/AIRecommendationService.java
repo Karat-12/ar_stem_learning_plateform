@@ -12,13 +12,28 @@ import com.arstem.backend.ai.domain.RecommendationType;
 import com.arstem.backend.common.exception.UnauthorizedException;
 import com.arstem.backend.learninganalytics.domain.LearningAnalytics;
 import com.arstem.backend.learninganalytics.repository.LearningAnalyticsRepository;
-import com.arstem.backend.misconception.domain.Misconception;
+import com.arstem.backend.learninganalytics.service.LearningAnalyticsService;
+import com.arstem.backend.misconception.domain.MisconceptionStatus;
 import com.arstem.backend.misconception.repository.MisconceptionRepository;
 import com.arstem.backend.progress.domain.Progress;
 import com.arstem.backend.progress.repository.ProgressRepository;
 import com.arstem.backend.user.domain.User;
 import com.arstem.backend.user.service.UserService;
 
+/**
+ * Generates mastery-tier recommendations for the AI Coach screen.
+ *
+ * <p>Tier → recommendation map:
+ * <pre>
+ *   MASTERED   (≥ 80)  →  NEXT_TOPIC   "You are ready for the next topic."
+ *   PROFICIENT (60–79) →  QUIZ_PRACTICE "Practise Insert/Delete to reach Mastered."
+ *   DEVELOPING (40–59) →  REVISION     "Repeat the assessment to consolidate."
+ *   BEGINNER   (< 40)  →  PRACTICE     "Review the learning workspace first."
+ * </pre>
+ *
+ * <p>Active misconceptions (ACTIVE status only) take precedence and always
+ * produce a REVISION recommendation regardless of the mastery score.
+ */
 @Service
 public class AIRecommendationService {
 
@@ -37,111 +52,145 @@ public class AIRecommendationService {
         this.userService = userService;
     }
 
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /** Global recommendations — all topics, used by the dashboard. */
     public List<RecommendationResponse> getRecommendations(String authenticatedEmail) {
-        User user = userService.findByEmail(authenticatedEmail)
-                .orElseThrow(() -> new UnauthorizedException("Authenticated user no longer exists."));
+        User user = getUser(authenticatedEmail);
         String userId = user.getId();
 
-        List<Progress> progressRecords = progressRepository.findByUserId(userId);
-        List<LearningAnalytics> analyticsRecords = analyticsRepository.findByUserId(userId);
-        List<Misconception> misconceptions = misconceptionRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<Progress> progress = progressRepository.findByUserId(userId);
+        List<LearningAnalytics> analytics = analyticsRepository.findByUserId(userId);
 
-        var analyticsByTopic = analyticsRecords.stream().collect(Collectors.toMap(LearningAnalytics::getTopicCode, a -> a));
-        var progressByTopic = progressRecords.stream().collect(Collectors.toMap(Progress::getTopicCode, p -> p));
-        var misconceptionCountByTopic = misconceptions.stream()
-                .collect(Collectors.groupingBy(Misconception::getTopicCode, Collectors.counting()));
+        // For the global list we can still use the full misconception counts stored
+        // in the analytics document (misconceptionCount = active-only since the fix).
+        return buildRecommendations(progress, analytics, userId, null);
+    }
+
+    /**
+     * Single topic-scoped recommendation for the AI Coach screen.
+     * Returns {@code null} (→ HTTP 204) when no recommendation applies.
+     */
+    public RecommendationResponse getRecommendationForTopic(String authenticatedEmail,
+            String topicCode) {
+        User user = getUser(authenticatedEmail);
+        String userId = user.getId();
+        String normalized = topicCode.trim().toUpperCase();
+
+        List<Progress> progress = progressRepository.findByUserId(userId).stream()
+                .filter(p -> p.getTopicCode().equals(normalized))
+                .collect(Collectors.toList());
+        List<LearningAnalytics> analytics = analyticsRepository.findByUserId(userId).stream()
+                .filter(a -> a.getTopicCode().equals(normalized))
+                .collect(Collectors.toList());
+
+        List<RecommendationResponse> results =
+                buildRecommendations(progress, analytics, userId, normalized);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    // ── Core builder ──────────────────────────────────────────────────────────
+
+    private List<RecommendationResponse> buildRecommendations(
+            List<Progress> progressRecords,
+            List<LearningAnalytics> analyticsRecords,
+            String userId, String singleTopicCode) {
+
+        var analyticsByTopic = analyticsRecords.stream()
+                .collect(Collectors.toMap(LearningAnalytics::getTopicCode, a -> a));
+        var progressByTopic = progressRecords.stream()
+                .collect(Collectors.toMap(Progress::getTopicCode, p -> p));
 
         var topicCodes = new TreeSet<String>();
         topicCodes.addAll(analyticsByTopic.keySet());
         topicCodes.addAll(progressByTopic.keySet());
-        topicCodes.addAll(misconceptionCountByTopic.keySet());
 
         List<RecommendationResponse> recommendations = new ArrayList<>();
 
         for (String topicCode : topicCodes) {
-            int misconceptionCount = misconceptionCountByTopic.getOrDefault(topicCode, 0L).intValue();
-            if (misconceptionCount > 3) {
-                recommendations.add(new RecommendationResponse(topicCode, RecommendationType.REVISION,
-                        "Multiple misconceptions detected. Revision recommended."));
-                continue;
-            }
+
+            // Live count of ACTIVE misconceptions from DB (most accurate).
+            long activeMisconceptions = singleTopicCode != null
+                    ? misconceptionRepository
+                            .findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                                    userId, topicCode, MisconceptionStatus.ACTIVE)
+                            .size()
+                    : (analyticsByTopic.containsKey(topicCode)
+                            ? analyticsByTopic.get(topicCode).getMisconceptionCount()
+                            : 0L);
 
             if (analyticsByTopic.containsKey(topicCode)) {
-                RecommendationResponse recommendation = buildRecommendationFromAnalytics(analyticsByTopic.get(topicCode));
-                if (recommendation != null) {
-                    recommendations.add(recommendation);
-                }
-                continue;
-            }
-
-            if (progressByTopic.containsKey(topicCode)) {
-                RecommendationResponse recommendation = buildRecommendationFromProgress(progressByTopic.get(topicCode));
-                if (recommendation != null) {
-                    recommendations.add(recommendation);
-                }
+                RecommendationResponse rec = buildFromAnalytics(
+                        analyticsByTopic.get(topicCode), (int) activeMisconceptions);
+                if (rec != null) recommendations.add(rec);
+            } else if (progressByTopic.containsKey(topicCode)) {
+                RecommendationResponse rec = buildFromProgress(
+                        progressByTopic.get(topicCode), (int) activeMisconceptions);
+                if (rec != null) recommendations.add(rec);
             }
         }
 
         return recommendations;
     }
 
-    private RecommendationResponse buildRecommendationFromAnalytics(LearningAnalytics analytics) {
-        int masteryScore = analytics.getMasteryScore();
-        int misconceptionCount = analytics.getMisconceptionCount();
-        int averageQuizScore = analytics.getAverageQuizScore();
-        String topicCode = analytics.getTopicCode();
+    // ── Tier-based recommendation rules ──────────────────────────────────────
 
-        // Rule 1: Low mastery score should trigger a practice recommendation.
-        if (masteryScore < 50) {
-            return new RecommendationResponse(topicCode, RecommendationType.PRACTICE,
-                    "Low mastery score detected. Additional practice is recommended.");
-        }
-
-        // Rule 2: Mastered topics should move learners to the next topic.
-        if (masteryScore >= 80) {
-            return new RecommendationResponse(topicCode, RecommendationType.NEXT_TOPIC,
-                    "Topic mastered. Ready for advanced learning.");
-        }
-
-        // Rule 3: Multiple misconceptions on a topic indicate revision is needed.
-        if (misconceptionCount > 3) {
-            return new RecommendationResponse(topicCode, RecommendationType.REVISION,
-                    "Multiple misconceptions detected. Revision recommended.");
-        }
-
-        // Rule 4: Low quiz performance should trigger quiz practice.
-        if (averageQuizScore < 60) {
-            return new RecommendationResponse(topicCode, RecommendationType.QUIZ_PRACTICE,
-                    "Quiz performance is below target. Additional quiz practice recommended.");
-        }
-
-        return null;
+    private RecommendationResponse buildFromAnalytics(LearningAnalytics a,
+            int activeMisconceptions) {
+        return tierRecommendation(a.getTopicCode(), a.getMasteryScore(), activeMisconceptions);
     }
 
-    private RecommendationResponse buildRecommendationFromProgress(Progress progress) {
-        int masteryScore = progress.getMasteryScore();
-        String topicCode = progress.getTopicCode();
-
-        if (masteryScore < 50) {
-            return new RecommendationResponse(topicCode, RecommendationType.PRACTICE,
-                    "Low mastery score detected. Additional practice is recommended.");
-        }
-
-        if (masteryScore >= 80) {
-            return new RecommendationResponse(topicCode, RecommendationType.NEXT_TOPIC,
-                    "Topic mastered. Ready for advanced learning.");
-        }
-
-        return null;
+    private RecommendationResponse buildFromProgress(Progress p, int activeMisconceptions) {
+        return tierRecommendation(p.getTopicCode(), p.getMasteryScore(), activeMisconceptions);
     }
 
-    private RecommendationResponse buildRevisionRecommendation(List<Misconception> misconceptions) {
-        String topicCode = misconceptions.get(0).getTopicCode();
-        long countForTopic = misconceptions.stream().filter(m -> m.getTopicCode().equals(topicCode)).count();
-        if (countForTopic > 3) {
+    /**
+     * Maps the student's current mastery tier to the most appropriate next action.
+     *
+     * <p>Active misconceptions always override the tier rule — a student with
+     * unresolved conceptual errors needs revision even if their raw score is high.
+     */
+    static RecommendationResponse tierRecommendation(String topicCode, int masteryScore,
+            int activeMisconceptions) {
+
+        String level = LearningAnalyticsService.calculateMasteryLevel(masteryScore);
+        String label = LearningAnalyticsService.formatTopicLabel(topicCode);
+
+        // Active misconceptions take priority — even a high scorer needs to
+        // address residual conceptual errors before advancing.
+        if (activeMisconceptions > 0) {
             return new RecommendationResponse(topicCode, RecommendationType.REVISION,
-                    "Multiple misconceptions detected. Revision recommended.");
+                    activeMisconceptions + " active misconception"
+                    + (activeMisconceptions == 1 ? "" : "s")
+                    + " detected for " + label
+                    + ". Resolve these before advancing.");
         }
-        return null;
+
+        return switch (level) {
+            case "MASTERED" -> new RecommendationResponse(topicCode, RecommendationType.NEXT_TOPIC,
+                    "You have mastered " + label
+                    + ". Move on to the next topic to continue your learning journey.");
+
+            case "PROFICIENT" -> new RecommendationResponse(topicCode,
+                    RecommendationType.QUIZ_PRACTICE,
+                    "You are proficient in " + label
+                    + ". Practise insertion and deletion operations "
+                    + "to push your mastery to Mastered level.");
+
+            case "DEVELOPING" -> new RecommendationResponse(topicCode, RecommendationType.REVISION,
+                    "You are developing your understanding of " + label
+                    + ". Repeat the assessment after reviewing the revision suggestions.");
+
+            default -> new RecommendationResponse(topicCode, RecommendationType.PRACTICE,
+                    "Review the " + label
+                    + " learning workspace before attempting the assessment again.");
+        };
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+
+    private User getUser(String email) {
+        return userService.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("Authenticated user no longer exists."));
     }
 }

@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ARCore feature declaration (the host app overrides required/optional). -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+
+    <!-- Sceneform requires OpenGL ES 3.0 or later. -->
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+
+    <application>
+        <!--
+            Declare ARCore as optional from the library side.
+            The host app's manifest wins via tools:replace on its own meta-data tag.
+        -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+    </application>
+
+</manifest>

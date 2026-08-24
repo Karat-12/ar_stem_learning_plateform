@@ -41,7 +41,10 @@ public class QuizService {
         }
 
         int score = calculateScore(request.correctAnswers(), request.totalQuestions());
-        QuizAttempt attempt = new QuizAttempt(user.getId(), request.sessionId().trim(), request.topicCode().trim(),
+        // Normalize to uppercase so quiz_attempts always match the canonical
+        // topicCode (e.g. "DSA_LINKED_LIST"), never a legacy form like "linked-list".
+        QuizAttempt attempt = new QuizAttempt(user.getId(), request.sessionId().trim(),
+                request.topicCode().trim().toUpperCase(),
                 request.totalQuestions(), request.correctAnswers(), score);
         attempt.markCreated();
         quizAttemptRepository.save(attempt);

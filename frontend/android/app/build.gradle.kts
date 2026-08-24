@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.ar_stem_learning_prototype"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24  // ARCore requires Android 7.0 (API 24) minimum
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

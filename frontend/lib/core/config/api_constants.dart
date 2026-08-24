@@ -2,11 +2,16 @@
 class ApiConstants {
   ApiConstants._();
 
-  // Desktop development URL
-  // For Android emulator, change to: http://10.0.2.2:8080
-  // For iOS simulator, change to: http://localhost:8080
-  // For physical device, change to: http://<your-machine-ip>:8080
-  static const String baseUrl = 'http://localhost:8080';
+  // ── Backend base URL ──────────────────────────────────────────────────────
+  // This is the SINGLE source of truth for the backend host.
+  // Change only this line when switching environments:
+  //
+  //   Laptop browser / desktop run : http://localhost:8080
+  //   Android emulator             : http://10.0.2.2:8080
+  //   iOS simulator                : http://localhost:8080
+  //   Physical Android device (LAN): http://192.168.1.5:8080  ← current
+  //   Deployed backend             : https://api.yourdomain.com
+  static const String baseUrl = 'http://192.168.0.31:8080';
 
   // Endpoints
   static const String loginEndpoint = '/api/v1/auth/login';

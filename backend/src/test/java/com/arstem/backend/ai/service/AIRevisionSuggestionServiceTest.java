@@ -16,7 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.arstem.backend.ai.domain.RevisionSuggestionResponse;
 import com.arstem.backend.learninganalytics.domain.LearningAnalytics;
 import com.arstem.backend.learninganalytics.repository.LearningAnalyticsRepository;
+import com.arstem.backend.learninganalytics.service.LearningAnalyticsService;
 import com.arstem.backend.misconception.domain.Misconception;
+import com.arstem.backend.misconception.domain.MisconceptionStatus;
 import com.arstem.backend.misconception.repository.MisconceptionRepository;
 import com.arstem.backend.user.domain.Role;
 import com.arstem.backend.user.domain.User;
@@ -26,81 +28,182 @@ import com.arstem.backend.user.service.UserService;
 @ExtendWith(MockitoExtension.class)
 class AIRevisionSuggestionServiceTest {
 
-    @Mock
-    private LearningAnalyticsRepository analyticsRepository;
-    @Mock
-    private MisconceptionRepository misconceptionRepository;
-    @Mock
-    private UserService userService;
-    @InjectMocks
-    private AIRevisionSuggestionService revisionSuggestionService;
+    @Mock private LearningAnalyticsRepository analyticsRepository;
+    @Mock private MisconceptionRepository misconceptionRepository;
+    @Mock private UserService userService;
+    @InjectMocks private AIRevisionSuggestionService service;
+
+    // ── Topic-scoped: ACTIVE-only misconceptions ──────────────────────────────
 
     @Test
-    void generatesRevisionSuggestionsForLowMasteryAndMisconceptions() {
-        when(userService.findByEmail("student@example.com")).thenReturn(Optional.of(user("user-1")));
+    void activeMisconceptionsProduceRevisionActions() {
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 55, 35)));
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of(
+                        misconception("u1", "DSA_LINKED_LIST"),
+                        misconception("u1", "DSA_LINKED_LIST"),
+                        misconception("u1", "DSA_LINKED_LIST"),
+                        misconception("u1", "DSA_LINKED_LIST"),
+                        misconception("u1", "DSA_LINKED_LIST"))); // 5 active
 
-        LearningAnalytics analytics = new LearningAnalytics("user-1", "DSA_LINKED_LIST");
-        analytics.update(1, 4, 55, 45, "BEGINNER", List.of(), true);
-        when(analyticsRepository.findByUserId("user-1")).thenReturn(List.of(analytics));
-        when(misconceptionRepository.findByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of(
-                new Misconception("user-1", "session-1", "DSA_LINKED_LIST", "M1", "Title", "", null),
-                new Misconception("user-1", "session-1", "DSA_LINKED_LIST", "M2", "Title", "", null),
-                new Misconception("user-1", "session-1", "DSA_LINKED_LIST", "M3", "Title", "", null),
-                new Misconception("user-1", "session-1", "DSA_LINKED_LIST", "M4", "Title", "", null)));
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
 
-        RevisionSuggestionResponse response = revisionSuggestionService.getRevisionSuggestions("student@example.com");
-
-        assertThat(response.revisionTopics()).containsExactly("DSA_LINKED_LIST");
-        assertThat(response.revisionActions()).containsExactly(
-                "Review misconceptions for DSA_LINKED_LIST",
-                "Retake quiz for DSA_LINKED_LIST");
-        assertThat(response.estimatedRevisionTimeMinutes()).isEqualTo(20);
-        assertThat(response.reason()).contains("repeated misconceptions");
+        assertThat(r.revisionTopics()).containsExactly("DSA_LINKED_LIST"); // lowMastery < 40
+        assertThat(r.revisionActions()).anyMatch(a -> a.contains("active misconceptions"));
+        assertThat(r.revisionActions()).anyMatch(a -> a.contains("quiz"));
+        assertThat(r.reason()).contains("Linked List");
+        assertThat(r.reason()).doesNotContain("DSA_LINKED_LIST"); // should use human label
     }
 
     @Test
-    void generatesRevisionActionForLowQuizOnly() {
-        when(userService.findByEmail("student@example.com")).thenReturn(Optional.of(user("user-1")));
+    void resolvedMisconceptionsDoNotAppearInRevisionActions() {
+        // All misconceptions are RESOLVED — the ACTIVE query returns empty.
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 90, 85)));
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of()); // nothing active
 
-        LearningAnalytics analytics = new LearningAnalytics("user-1", "DSA_STACK");
-        analytics.update(2, 1, 55, 70, "INTERMEDIATE", List.of(), false);
-        when(analyticsRepository.findByUserId("user-1")).thenReturn(List.of(analytics));
-        when(misconceptionRepository.findByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of());
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
 
-        RevisionSuggestionResponse response = revisionSuggestionService.getRevisionSuggestions("student@example.com");
-
-        assertThat(response.revisionTopics()).isEmpty();
-        assertThat(response.revisionActions()).containsExactly("Retake quiz for DSA_STACK");
-        assertThat(response.estimatedRevisionTimeMinutes()).isEqualTo(0);
-        assertThat(response.reason()).contains("quiz score is low");
+        assertThat(r.revisionTopics()).isEmpty();
+        assertThat(r.revisionActions()).isEmpty();
+        assertThat(r.reason()).isEqualTo("No revision needed — keep up the great work!");
     }
 
     @Test
-    void returnsNoRevisionSuggestionsWhenNoCriteriaMet() {
-        when(userService.findByEmail("student@example.com")).thenReturn(Optional.of(user("user-1")));
+    void masteredTopicWithNoActiveMisconceptionsProducesNoRevision() {
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 92, 88)));
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of());
 
-        LearningAnalytics analytics = new LearningAnalytics("user-1", "DSA_GRAPH");
-        analytics.update(3, 0, 85, 90, "ADVANCED", List.of(), false);
-        when(analyticsRepository.findByUserId("user-1")).thenReturn(List.of(analytics));
-        when(misconceptionRepository.findByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of());
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
 
-        RevisionSuggestionResponse response = revisionSuggestionService.getRevisionSuggestions("student@example.com");
-
-        assertThat(response.revisionTopics()).isEmpty();
-        assertThat(response.revisionActions()).isEmpty();
-        assertThat(response.estimatedRevisionTimeMinutes()).isEqualTo(0);
-        assertThat(response.reason()).isEqualTo("No revision suggestions available.");
+        assertThat(r.revisionTopics()).isEmpty();
+        assertThat(r.revisionActions()).isEmpty();
     }
 
-    private User user(String id) {
-        User user = new User("Student", "student@example.com", "hash", Set.of(Role.STUDENT), UserStatus.ACTIVE);
+    @Test
+    void topicScopedNeverSurfacesOtherTopics() {
+        // User has active misconceptions for DSA_STACK only.
+        // The Linked List request must not see Stack data.
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1")).thenReturn(List.of(
+                analytics("u1", "DSA_LINKED_LIST", 90, 85), // MASTERED
+                analytics("u1", "DSA_STACK", 30, 28)));     // BEGINNER
+        // ACTIVE query for DSA_LINKED_LIST returns empty.
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
+
+        assertThat(r.revisionTopics()).isEmpty();
+        assertThat(r.revisionActions()).noneMatch(a -> a.contains("Stack"));
+        assertThat(r.revisionActions()).noneMatch(a -> a.contains("DSA_STACK"));
+    }
+
+    @Test
+    void beginnerMasteryAloneTriggersRevisionTopic() {
+        // masteryScore=35 < 40 = BEGINNER = lowMastery → added to revisionTopics
+        // avgQuizScore=50 < 60 → also triggers low-quiz action
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 50, 35)));
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
+
+        assertThat(r.revisionTopics()).containsExactly("DSA_LINKED_LIST");
+        // reason mentions BEGINNER mastery (plus possibly quiz performance)
+        assertThat(r.reason()).containsAnyOf("BEGINNER", "low mastery");
+    }
+
+    @Test
+    void lowQuizScoreAloneTriggersRetakeAction() {
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        // masteryScore = 65 (PROFICIENT, not BEGINNER) but avgQuizScore = 55 (< 60)
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 55, 65)));
+        when(misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                "u1", "DSA_LINKED_LIST", MisconceptionStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        RevisionSuggestionResponse r =
+                service.getRevisionSuggestionsForTopic("u@test.com", "DSA_LINKED_LIST");
+
+        // Not in revisionTopics (mastery >= 40) but retake action added.
+        assertThat(r.revisionTopics()).isEmpty();
+        assertThat(r.revisionActions()).anyMatch(a -> a.contains("quiz"));
+        assertThat(r.reason()).contains("60%");
+    }
+
+    // ── Global path: active-only filter in memory ─────────────────────────────
+
+    @Test
+    void globalRevisionFiltersOutResolvedMisconceptions() {
+        when(userService.findByEmail("u@test.com")).thenReturn(Optional.of(user("u1")));
+        when(analyticsRepository.findByUserId("u1"))
+                .thenReturn(List.of(analytics("u1", "DSA_LINKED_LIST", 90, 85)));
+
+        Misconception resolved = misconception("u1", "DSA_LINKED_LIST");
+        resolved.resolve();
+        Misconception active = misconception("u1", "DSA_LINKED_LIST");
+
+        when(misconceptionRepository.findByUserIdOrderByCreatedAtDesc("u1"))
+                .thenReturn(List.of(resolved, active)); // mix of states
+
+        RevisionSuggestionResponse r = service.getRevisionSuggestions("u@test.com");
+
+        // Only 1 active → not > 3, so no "Review misconceptions" action.
+        // masteryScore >= 80 → not lowMastery.
+        // avgQuizScore >= 60 → not lowQuiz.
+        // No actions should be generated.
+        assertThat(r.revisionTopics()).isEmpty();
+        assertThat(r.revisionActions()).noneMatch(a -> a.contains("Review the"));
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static LearningAnalytics analytics(String userId, String topicCode,
+            int avgQuiz, int mastery) {
+        LearningAnalytics a = new LearningAnalytics(userId, topicCode);
+        String level = LearningAnalyticsService.calculateMasteryLevel(mastery);
+        a.update(1, 0, avgQuiz, mastery, level, List.of(), mastery < 80, "");
+        return a;
+    }
+
+    private static Misconception misconception(String userId, String topicCode) {
+        Misconception m = new Misconception(userId, "session-1", topicCode,
+                "CODE", "Title", "", null);
+        m.markCreated();
+        return m;
+    }
+
+    private static User user(String id) {
+        User u = new User("Student", "u@test.com", "hash",
+                Set.of(Role.STUDENT), UserStatus.ACTIVE);
         try {
-            var field = User.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(user, id);
-            return user;
-        } catch (ReflectiveOperationException exception) {
-            throw new AssertionError(exception);
+            var f = User.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(u, id);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
+        return u;
     }
 }

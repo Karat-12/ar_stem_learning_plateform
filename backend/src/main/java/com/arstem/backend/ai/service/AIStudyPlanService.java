@@ -12,11 +12,27 @@ import com.arstem.backend.ai.domain.StudyPlanResponse;
 import com.arstem.backend.common.exception.UnauthorizedException;
 import com.arstem.backend.learninganalytics.domain.LearningAnalytics;
 import com.arstem.backend.learninganalytics.repository.LearningAnalyticsRepository;
+import com.arstem.backend.learninganalytics.service.LearningAnalyticsService;
 import com.arstem.backend.misconception.domain.Misconception;
+import com.arstem.backend.misconception.domain.MisconceptionStatus;
 import com.arstem.backend.misconception.repository.MisconceptionRepository;
 import com.arstem.backend.user.domain.User;
 import com.arstem.backend.user.service.UserService;
 
+/**
+ * Generates a mastery-tier study plan for the AI Coach screen.
+ *
+ * <p>Task sets per tier:
+ * <pre>
+ *   BEGINNER   (< 40)   — Learn concept, Practice workspace, Retry assessment
+ *   DEVELOPING (40–59)  — Practice insertion, Practice deletion, Attempt quiz
+ *   PROFICIENT (60–79)  — Solve challenge mode, Timed assessment
+ *   MASTERED   (≥ 80)   — Start next topic
+ * </pre>
+ *
+ * <p>Active misconceptions (ACTIVE status only) are counted from the DB so
+ * that resolved misconceptions never inflate task lists or priority levels.
+ */
 @Service
 public class AIStudyPlanService {
 
@@ -32,109 +48,179 @@ public class AIStudyPlanService {
         this.userService = userService;
     }
 
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /** Global study plan across all topics (dashboard use). */
     public StudyPlanResponse getStudyPlan(String authenticatedEmail) {
-        User user = userService.findByEmail(authenticatedEmail)
-                .orElseThrow(() -> new UnauthorizedException("Authenticated user no longer exists."));
+        User user = getUser(authenticatedEmail);
         String userId = user.getId();
 
         List<LearningAnalytics> analytics = analyticsRepository.findByUserId(userId);
-        Map<String, Long> misconceptionsByTopic = misconceptionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+        Map<String, Long> activeMisconceptionsByTopic =
+                misconceptionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                        .filter(Misconception::isActive)
+                        .collect(Collectors.groupingBy(
+                                Misconception::getTopicCode, Collectors.counting()));
+
+        return buildPlan(analytics, activeMisconceptionsByTopic);
+    }
+
+    /**
+     * Topic-scoped study plan used by the AI Coach screen.
+     * Only ACTIVE misconceptions are fetched from the DB — resolved ones
+     * must never add extra tasks or raise priority.
+     */
+    public StudyPlanResponse getStudyPlanForTopic(String authenticatedEmail, String topicCode) {
+        User user = getUser(authenticatedEmail);
+        String userId = user.getId();
+        String normalized = topicCode.trim().toUpperCase();
+
+        List<LearningAnalytics> analytics = analyticsRepository.findByUserId(userId).stream()
+                .filter(a -> a.getTopicCode().equals(normalized))
+                .collect(Collectors.toList());
+
+        // DB-level ACTIVE-only query — resolved misconceptions never returned.
+        List<Misconception> activeMisconceptions =
+                misconceptionRepository.findByUserIdAndTopicCodeAndStatusOrderByCreatedAtDesc(
+                        userId, normalized, MisconceptionStatus.ACTIVE);
+        Map<String, Long> activeMisconceptionsByTopic = activeMisconceptions.stream()
                 .collect(Collectors.groupingBy(Misconception::getTopicCode, Collectors.counting()));
 
-        List<String> todayTasks = new ArrayList<>();
+        return buildPlan(analytics, activeMisconceptionsByTopic);
+    }
+
+    // ── Core builder ──────────────────────────────────────────────────────────
+
+    private StudyPlanResponse buildPlan(List<LearningAnalytics> analytics,
+            Map<String, Long> activeMisconceptionsByTopic) {
+
+        List<String> todayTasks    = new ArrayList<>();
         PriorityLevel overallPriority = PriorityLevel.LOW;
-        List<String> reasons = new ArrayList<>();
+        List<String> reasons       = new ArrayList<>();
 
-        for (LearningAnalytics analyticsEntry : analytics) {
-            String topicCode = analyticsEntry.getTopicCode();
-            int masteryScore = analyticsEntry.getMasteryScore();
-            long misconceptionCount = misconceptionsByTopic.getOrDefault(topicCode, 0L);
+        for (LearningAnalytics entry : analytics) {
+            String topicCode = entry.getTopicCode();
+            int masteryScore = entry.getMasteryScore();
+            long activeMisconceptions =
+                    activeMisconceptionsByTopic.getOrDefault(topicCode, 0L);
+            String label = LearningAnalyticsService.formatTopicLabel(topicCode);
 
-            PriorityLevel topicPriority = determinePriority(masteryScore);
-            addStudyTasks(todayTasks, topicCode, masteryScore);
+            PriorityLevel topicPriority = tierPriority(masteryScore);
+            addTierTasks(todayTasks, label, masteryScore, activeMisconceptions);
 
-            if (misconceptionCount > 3) {
-                todayTasks.add("Review misconceptions for " + topicCode);
-                topicPriority = increasePriority(topicPriority);
+            // Active misconceptions raise priority regardless of tier.
+            if (activeMisconceptions > 3) {
+                todayTasks.add("Resolve " + activeMisconceptions
+                        + " active misconceptions for " + label);
+                topicPriority = raise(topicPriority);
+            } else if (activeMisconceptions > 0) {
+                todayTasks.add("Review " + activeMisconceptions
+                        + " remaining misconception"
+                        + (activeMisconceptions == 1 ? "" : "s") + " for " + label);
             }
 
-            overallPriority = pickHigherPriority(overallPriority, topicPriority);
-            reasons.add(generateReason(topicCode, masteryScore, misconceptionCount));
+            overallPriority = higher(overallPriority, topicPriority);
+            reasons.add(tierReason(label, masteryScore, activeMisconceptions));
         }
 
         if (todayTasks.isEmpty()) {
             return new StudyPlanResponse(List.of(), 0, PriorityLevel.LOW,
-                    "No study plan can be generated because no analytics data is available.");
+                    "No study plan available yet — complete an assessment to get started.");
         }
 
-        int estimatedTimeMinutes = minutesForPriority(overallPriority);
-        String reason = String.join(" ", reasons).trim();
-        return new StudyPlanResponse(List.copyOf(todayTasks), estimatedTimeMinutes, overallPriority, reason);
+        int estimatedTimeMinutes = minutesFor(overallPriority);
+        return new StudyPlanResponse(
+                List.copyOf(todayTasks),
+                estimatedTimeMinutes,
+                overallPriority,
+                String.join(" ", reasons).trim());
     }
 
-    private PriorityLevel determinePriority(int masteryScore) {
-        if (masteryScore < 50) {
-            return PriorityLevel.HIGH;
+    // ── Tier-task sets ────────────────────────────────────────────────────────
+
+    /**
+     * Adds the appropriate task set for the student's current mastery tier.
+     */
+    private static void addTierTasks(List<String> tasks, String label,
+            int masteryScore, long activeMisconceptions) {
+
+        String tier = LearningAnalyticsService.calculateMasteryLevel(masteryScore);
+        switch (tier) {
+            case "BEGINNER" -> {
+                tasks.add("Study the " + label + " concept in the learning workspace");
+                tasks.add("Complete the " + label + " AR practice activity");
+                tasks.add("Retry the " + label + " assessment");
+            }
+            case "DEVELOPING" -> {
+                tasks.add("Practise " + label + " insertion operations");
+                tasks.add("Practise " + label + " deletion operations");
+                tasks.add("Attempt the " + label + " quiz again");
+            }
+            case "PROFICIENT" -> {
+                tasks.add("Solve the " + label + " challenge mode");
+                tasks.add("Complete a timed " + label + " assessment");
+            }
+            case "MASTERED" -> tasks.add("Start the next topic after " + label);
         }
-        if (masteryScore < 80) {
-            return PriorityLevel.MEDIUM;
-        }
-        return PriorityLevel.LOW;
     }
 
-    private void addStudyTasks(List<String> todayTasks, String topicCode, int masteryScore) {
-        if (masteryScore < 50) {
-            todayTasks.add("Review " + topicCode + " concepts");
-            todayTasks.add("Complete " + topicCode + " practice activity");
-            todayTasks.add("Attempt " + topicCode + " quiz");
-            return;
-        }
-        if (masteryScore < 80) {
-            todayTasks.add("Practice " + topicCode);
-            todayTasks.add("Attempt quiz revision");
-            return;
-        }
-        todayTasks.add("Explore next topic after " + topicCode);
-    }
+    // ── Priority helpers ──────────────────────────────────────────────────────
 
-    private PriorityLevel increasePriority(PriorityLevel priorityLevel) {
-        if (priorityLevel == PriorityLevel.LOW) {
-            return PriorityLevel.MEDIUM;
-        }
-        if (priorityLevel == PriorityLevel.MEDIUM) {
-            return PriorityLevel.HIGH;
-        }
-        return PriorityLevel.HIGH;
-    }
-
-    private PriorityLevel pickHigherPriority(PriorityLevel current, PriorityLevel candidate) {
-        if (candidate == PriorityLevel.HIGH || current == PriorityLevel.LOW && candidate == PriorityLevel.MEDIUM) {
-            return candidate;
-        }
-        if (current == PriorityLevel.MEDIUM && candidate == PriorityLevel.LOW) {
-            return current;
-        }
-        return current;
-    }
-
-    private int minutesForPriority(PriorityLevel priorityLevel) {
-        return switch (priorityLevel) {
-            case HIGH -> 60;
-            case MEDIUM -> 45;
-            case LOW -> 30;
+    private static PriorityLevel tierPriority(int masteryScore) {
+        return switch (LearningAnalyticsService.calculateMasteryLevel(masteryScore)) {
+            case "BEGINNER"   -> PriorityLevel.HIGH;
+            case "DEVELOPING" -> PriorityLevel.HIGH;
+            case "PROFICIENT" -> PriorityLevel.MEDIUM;
+            default           -> PriorityLevel.LOW;
         };
     }
 
-    private String generateReason(String topicCode, int masteryScore, long misconceptionCount) {
-        if (masteryScore < 50 && misconceptionCount > 3) {
-            return topicCode + " mastery score is below target and repeated misconceptions were detected.";
+    private static PriorityLevel raise(PriorityLevel p) {
+        return switch (p) {
+            case LOW    -> PriorityLevel.MEDIUM;
+            case MEDIUM -> PriorityLevel.HIGH;
+            case HIGH   -> PriorityLevel.HIGH;
+        };
+    }
+
+    private static PriorityLevel higher(PriorityLevel a, PriorityLevel b) {
+        if (a == PriorityLevel.HIGH || b == PriorityLevel.HIGH) return PriorityLevel.HIGH;
+        if (a == PriorityLevel.MEDIUM || b == PriorityLevel.MEDIUM) return PriorityLevel.MEDIUM;
+        return PriorityLevel.LOW;
+    }
+
+    private static int minutesFor(PriorityLevel p) {
+        return switch (p) {
+            case HIGH   -> 60;
+            case MEDIUM -> 45;
+            case LOW    -> 30;
+        };
+    }
+
+    // ── Reason generation ─────────────────────────────────────────────────────
+
+    private static String tierReason(String label, int masteryScore, long activeMisconceptions) {
+        String tier = LearningAnalyticsService.calculateMasteryLevel(masteryScore);
+        String base = switch (tier) {
+            case "BEGINNER"   -> label + " mastery is at BEGINNER level — "
+                    + "start with the learning workspace before the assessment.";
+            case "DEVELOPING" -> label + " is at DEVELOPING — "
+                    + "practise operations to reach Proficient.";
+            case "PROFICIENT" -> label + " is Proficient — "
+                    + "challenge mode will push you to Mastered.";
+            default           -> label + " is Mastered — advance to the next topic.";
+        };
+        if (activeMisconceptions > 0) {
+            base += " " + activeMisconceptions + " active misconception"
+                    + (activeMisconceptions == 1 ? "" : "s") + " still need attention.";
         }
-        if (masteryScore < 50) {
-            return topicCode + " mastery score is below target.";
-        }
-        if (masteryScore < 80) {
-            return topicCode + " needs targeted practice to improve mastery.";
-        }
-        return topicCode + " is ready for extension learning.";
+        return base;
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+
+    private User getUser(String email) {
+        return userService.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("Authenticated user no longer exists."));
     }
 }

@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.arstem.backend.topic.domain.Topic;
@@ -12,6 +13,7 @@ import com.arstem.backend.topic.repository.TopicRepository;
 
 /** Seeds the initial learning catalogue only when the topics collection is empty. */
 @Component
+@Order(1)
 public class TopicSeeder implements ApplicationRunner {
 
     private final TopicRepository topicRepository;

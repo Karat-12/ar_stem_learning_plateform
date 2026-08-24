@@ -40,9 +40,9 @@ class AIFeedbackServiceTest {
         when(userService.findByEmail("student@example.com")).thenReturn(Optional.of(user("user-1")));
 
         LearningAnalytics strongTopic = new LearningAnalytics("user-1", "DSA_STACK");
-        strongTopic.update(2, 0, 85, 90, "ADVANCED", List.of(), false);
+        strongTopic.update(2, 0, 85, 90, "MASTERED", List.of(), false, "");
         LearningAnalytics weakTopic = new LearningAnalytics("user-1", "DSA_LINKED_LIST");
-        weakTopic.update(1, 4, 55, 45, "BEGINNER", List.of(), true);
+        weakTopic.update(1, 4, 55, 45, "BEGINNER", List.of(), true, "");
 
         when(analyticsRepository.findByUserId("user-1")).thenReturn(List.of(strongTopic, weakTopic));
         when(misconceptionRepository.findByUserIdOrderByCreatedAtDesc("user-1")).thenReturn(List.of(

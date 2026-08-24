@@ -31,8 +31,15 @@ public class MisconceptionService {
     public Misconception recordMisconception(String authenticatedEmail, RecordMisconceptionRequest request) {
         User user = getAuthenticatedUser(authenticatedEmail);
         verifySessionOwnership(request.sessionId(), user);
-        Misconception misconception = new Misconception(user.getId(), request.sessionId().trim(), request.topicCode().trim(),
-                request.misconceptionCode().trim(), request.misconceptionTitle().trim(), request.description().trim(),
+        // Normalize to uppercase so misconceptions always use the canonical
+        // topicCode and feed into the correct analytics bucket.
+        Misconception misconception = new Misconception(
+                user.getId(),
+                request.sessionId().trim(),
+                request.topicCode().trim().toUpperCase(),
+                request.misconceptionCode().trim(),
+                request.misconceptionTitle().trim(),
+                request.description().trim(),
                 request.severity());
         misconception.markCreated();
         return misconceptionRepository.save(misconception);

@@ -46,6 +46,10 @@ dependencies:
   
   # Local storage
   shared_preferences: ^2.2.2
+  
+  # Camera — used for the AR-style Linked List practice screen.
+  # Official Flutter camera plugin; no ARCore dependency.
+  camera: ^0.12.0+2
 
 dev_dependencies:
   flutter_test:
@@ -99,3 +103,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# (No dependency overrides needed)

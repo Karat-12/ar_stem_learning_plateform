@@ -8,6 +8,7 @@ import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/status_chip.dart';
+import '../linked_list/screens/linked_list_construction_screen.dart';
 import '../misconceptions/models/record_misconception_request.dart';
 import '../misconceptions/services/misconception_service.dart';
 import '../progress/providers/progress_provider.dart';
@@ -156,11 +157,11 @@ class _AdvancedStemWorkspacesScreenState
   String _mapDomainCode(int domainIndex) {
     switch (domainIndex) {
       case 0:
-        return 'data-structures';
+        return 'DSA';
       case 1:
-        return 'digital-electronics';
+        return 'ELECTRONICS';
       default:
-        return 'organic-chemistry';
+        return 'CHEMISTRY';
     }
   }
 
@@ -168,36 +169,36 @@ class _AdvancedStemWorkspacesScreenState
     if (domainIndex == 0) {
       switch (topicIndex) {
         case 0:
-          return 'linked-list';
+          return 'DSA_LINKED_LIST';
         case 1:
-          return 'stack';
+          return 'DSA_STACK';
         default:
-          return 'binary-tree';
+          return 'DSA_BINARY_TREE';
       }
     }
 
     if (domainIndex == 1) {
       switch (topicIndex) {
         case 0:
-          return 'basic-logic-gates';
+          return 'ELECTRONICS_AND_GATE';
         case 1:
-          return 'xor-gate-builder';
+          return 'ELECTRONICS_XOR_GATE';
         case 2:
-          return 'complex-gate-construction';
+          return 'ELECTRONICS_NAND_GATE';
         default:
-          return 'truth-table-simulator';
+          return 'ELECTRONICS_OR_GATE';
       }
     }
 
     switch (topicIndex) {
       case 0:
-        return 'hydrocarbon-builder';
+        return 'CHEMISTRY_METHANE';
       case 1:
-        return 'sugar-structure-builder';
+        return 'CHEMISTRY_GLUCOSE';
       case 2:
-        return 'alcohol-functional-groups';
+        return 'CHEMISTRY_ETHANOL';
       default:
-        return 'bond-simulator';
+        return 'CHEMISTRY_ETHANE';
     }
   }
 
@@ -375,7 +376,7 @@ class DataStructuresWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (topicIndex) {
-      0 => const _LinkedListLearningLab(),
+      0 => const LinkedListConstructionScreen(),
       1 => const StackLearningLab(),
       _ => const BinaryTreeLearningLab(),
     };
@@ -3487,7 +3488,7 @@ class _LinkedListLearningLabState extends State<_LinkedListLearningLab> {
   String _feedback = 'Drag node chips onto the list board to build the chain.';
   Color _accent = AppColors.cyan;
   bool _brokenLink = false;
-  Set<String> _activeMisconceptions = {};
+  final Set<String> _activeMisconceptions = {};
 
   void _addNode(String label) {
     if (_nodes.any((node) => node.label == label)) {

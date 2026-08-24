@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/advanced_workspaces/advanced_stem_workspaces_screen.dart';
+import '../features/ar/screens/ar_linked_list_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
-import '../features/placeholder/feature_placeholder_screen.dart';
 import '../features/progress/screens/progress_screen.dart';
 import '../shared/widgets/cyber_background.dart';
 
@@ -31,13 +31,7 @@ class _AppShellState extends State<AppShell> {
         final pages = [
           DashboardScreen(onOpenSection: _openSection),
           const AdvancedStemWorkspacesScreen(),
-          const FeaturePlaceholderScreen(
-            title: 'AR Simulation',
-            message:
-                'AR scene controls and camera logic are intentionally not built yet.',
-            icon: Icons.view_in_ar_outlined,
-            accent: AppColors.pink,
-          ),
+          const ArLinkedListScreen(),
           const ProgressScreen(),
         ];
 

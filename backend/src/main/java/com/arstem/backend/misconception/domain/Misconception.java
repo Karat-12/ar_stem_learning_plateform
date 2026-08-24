@@ -17,6 +17,9 @@ public class Misconception {
     private String misconceptionTitle;
     private String description;
     private MisconceptionSeverity severity;
+    /** Lifecycle state — defaults to ACTIVE on creation, may be moved to RESOLVED. */
+    private MisconceptionStatus status = MisconceptionStatus.ACTIVE;
+    private Instant resolvedAt;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -35,9 +38,27 @@ public class Misconception {
     }
 
     public void markCreated() {
+        this.status = MisconceptionStatus.ACTIVE;
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+    }
+
+    /**
+     * Marks this misconception as RESOLVED because the student demonstrated
+     * correct understanding in a subsequent assessment.  Once resolved the
+     * record is retained for historical analytics but excluded from all
+     * AI Coach mastery calculations and revision suggestions.
+     */
+    public void resolve() {
+        this.status = MisconceptionStatus.RESOLVED;
+        Instant now = Instant.now();
+        this.resolvedAt = now;
+        this.updatedAt = now;
+    }
+
+    public boolean isActive() {
+        return status == null || status == MisconceptionStatus.ACTIVE;
     }
 
     public String getId() { return id; }
@@ -48,6 +69,8 @@ public class Misconception {
     public String getMisconceptionTitle() { return misconceptionTitle; }
     public String getDescription() { return description; }
     public MisconceptionSeverity getSeverity() { return severity; }
+    public MisconceptionStatus getStatus() { return status; }
+    public Instant getResolvedAt() { return resolvedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }
